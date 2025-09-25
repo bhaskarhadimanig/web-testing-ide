@@ -36,6 +36,14 @@ pnpm build
 
 # Package for distribution
 pnpm package
+
+# Package for specific platforms
+pnpm package:win    # Windows
+pnpm package:mac    # macOS
+pnpm package:linux  # Linux
+
+# Package for all platforms
+pnpm package:all
 ```
 
 ### For Non-Developers
@@ -67,16 +75,21 @@ This is a monorepo with the following structure:
 ## Development Status
 
 - ✅ **Phase 1**: Monorepo scaffold, Electron shell, CI skeleton
-- 🚧 **Phase 2**: Recording engine, selector engine
-- 🚧 **Phase 3**: Code generation, test runner, IDE UI
-- 🚧 **Phase 4**: Packaging, documentation, testing
+- ✅ **Phase 2**: Recording engine, JSON schema, UI integration
+- ✅ **Phase 3**: Selector engine, code generation, CLI tools
+- ✅ **Phase 4**: Test runner, HTML reporting, artifact collection
+- ✅ **Phase 5**: Monaco Editor, assertion builder, enhanced UX
+- ✅ **Phase 6**: Packaging, documentation, release automation
 
 ## Documentation
 
 - [Architecture Overview](docs/architecture.md)
 - [Development Decisions](docs/DECISIONS.md)
-- [Troubleshooting](docs/troubleshooting.md)
+- [Security Policy](docs/SECURITY.md)
+- [Privacy Policy](docs/PRIVACY.md)
+- [Packaging Guide](docs/packaging.md)
 - [Non-Developer Quickstart](docs/quickstart-non-dev.md)
+- [Screenshots Walkthrough](docs/screenshots/)
 
 ## License
 

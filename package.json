@@ -17,7 +17,11 @@
     "format": "prettier --write .",
     "prepare": "husky install",
     "clean": "pnpm -r clean && rm -rf node_modules",
-    "package": "pnpm --filter ide-electron package",
+    "package": "pnpm build && pnpm --filter ide-electron package",
+    "package:all": "pnpm build && pnpm --filter ide-electron package:all",
+    "package:win": "pnpm build && pnpm --filter ide-electron package -- --win",
+    "package:mac": "pnpm build && pnpm --filter ide-electron package -- --mac",
+    "package:linux": "pnpm build && pnpm --filter ide-electron package -- --linux",
     "demo:recording": "node scripts/create-demo-recording.js"
   },
   "devDependencies": {

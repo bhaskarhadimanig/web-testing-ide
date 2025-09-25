@@ -9,6 +9,23 @@ This guide helps non-technical users get started with the Web Testing IDE.
 
 ## Installation
 
+### Option 1: Download Pre-built Installer (Recommended)
+
+1. **Download the installer for your platform**:
+   - **Windows**: Download `Web-Testing-IDE-Setup-x.x.x.exe` from [GitHub Releases](https://github.com/bhaskarhadimanig/web-testing-ide/releases)
+   - **macOS**: Download `Web-Testing-IDE-x.x.x.dmg` from [GitHub Releases](https://github.com/bhaskarhadimanig/web-testing-ide/releases)
+   - **Linux**: Download `Web-Testing-IDE-x.x.x.AppImage` from [GitHub Releases](https://github.com/bhaskarhadimanig/web-testing-ide/releases)
+
+2. **Install the application**:
+   - **Windows**: Run the `.exe` installer and follow the setup wizard
+   - **macOS**: Open the `.dmg` file and drag the app to Applications folder
+   - **Linux**: Make the `.AppImage` executable and run it: `chmod +x Web-Testing-IDE-*.AppImage && ./Web-Testing-IDE-*.AppImage`
+
+3. **Launch the application**:
+   - Find "Web Testing IDE" in your applications menu or desktop
+
+### Option 2: Build from Source (Developers)
+
 1. **Download the project**
    ```bash
    git clone https://github.com/bhaskarhadimanig/web-testing-ide.git
@@ -39,21 +56,23 @@ The Web Testing IDE has a simple interface with:
   - **Run**: Execute the generated test
   - **Export**: Save your test in different formats
 
-- **Left Panel**: Shows the recorded steps in a tree view
+- **Left Panel**: Shows the recorded steps with thumbnails and editing options
 - **Right Panel**: Contains two tabs:
-  - **Steps**: Visual editor for recorded steps (coming in Phase 2)
-  - **Code**: Generated test code that you can view and edit
+  - **Steps**: Visual editor for recorded steps with assertion builder
+  - **Code**: Generated test code with Monaco Editor for syntax highlighting
 
 ### Basic Workflow
 
 1. Click **Record** to start capturing your interactions
 2. Navigate to the website you want to test
 3. Perform the actions you want to test (clicks, typing, etc.)
-4. Click **Stop** when finished recording
-5. Click **Generate** to create test code from your recording
-6. Review the generated code in the **Code** tab
-7. Click **Run** to execute your test
-8. Use **Export** to save your test for later use
+4. Add assertions using the **Add Assertion** button to verify expected behavior
+5. Click **Stop** when finished recording
+6. Review recorded steps in the **Steps** tab and edit if needed
+7. Click **Generate** to create test code from your recording
+8. Review the generated code in the **Code** tab with full syntax highlighting
+9. Click **Run** to execute your test and view results
+10. Use **Export** to save your test in different formats (Playwright, Cypress, Selenium)
 
 ## Troubleshooting
 
@@ -74,8 +93,12 @@ The Web Testing IDE has a simple interface with:
 ## Getting Help
 
 - Check the main README.md for technical details
-- Review the DECISIONS.md file to understand the architecture
+- Review the [Architecture Overview](architecture.md) to understand the system design
+- Read the [Security Policy](SECURITY.md) for security best practices
+- Review the [Privacy Policy](PRIVACY.md) for data handling information
+- Check the [Packaging Guide](packaging.md) for distribution instructions
 - For issues, create a GitHub issue in the project repository
+- View the [Screenshots Walkthrough](screenshots/) for visual guides
 
 ## Data Privacy
 
