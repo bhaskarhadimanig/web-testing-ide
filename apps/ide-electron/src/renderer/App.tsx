@@ -24,6 +24,7 @@ test('recorded session', async ({ page }) => {
   const [showAssertionBuilder, setShowAssertionBuilder] = useState(false)
   const [editingStep, setEditingStep] = useState<RecorderStep | null>(null)
   const [testProgress, setTestProgress] = useState({ progress: 0, currentStep: '' })
+  const [recordingUrl, setRecordingUrl] = useState('https://demo.playwright.dev')
   
   const {
     state: recordingSteps,
@@ -51,8 +52,13 @@ test('recorded session', async ({ page }) => {
   }, [undoSteps, redoSteps])
 
   const handleRecord = async () => {
+    if (!recordingUrl.trim()) {
+      alert('Please enter a URL to record')
+      return
+    }
+
     try {
-      const result = await window.electronAPI.recorder.start('https://demo.playwright.dev', {
+      const result = await window.electronAPI.recorder.start(recordingUrl, {
         mode: 'playwright',
         headless: false
       })
@@ -456,6 +462,24 @@ test('recorded session', async ({ page }) => {
       <header className="bg-white shadow-sm border-b px-4 py-2">
         <div className="flex items-center space-x-4">
           <h1 className="text-lg font-semibold text-gray-900">Web Testing IDE</h1>
+          
+          {/* URL Input */}
+          <div className="flex items-center space-x-2">
+            <label htmlFor="recording-url" className="text-sm font-medium text-gray-700">
+              URL:
+            </label>
+            <input
+              id="recording-url"
+              type="url"
+              value={recordingUrl}
+              onChange={(e) => setRecordingUrl(e.target.value)}
+              placeholder="https://example.com"
+              disabled={isRecording}
+              className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              style={{ minWidth: '300px' }}
+            />
+          </div>
+          
           <div className="flex space-x-2">
             <button
               onClick={handleRecord}
