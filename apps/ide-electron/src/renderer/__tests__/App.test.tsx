@@ -25,6 +25,6 @@ test('renders recording steps panel', () => {
 
 test('renders tab navigation', () => {
   render(<App />)
-  expect(screen.getByText('Steps')).toBeInTheDocument()
+  expect(screen.getByText('Steps (0)')).toBeInTheDocument()
   expect(screen.getByText('Code')).toBeInTheDocument()
 })

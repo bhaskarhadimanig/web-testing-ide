@@ -18,16 +18,20 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@web-testing-ide/common": "workspace:*",
+    "@web-testing-ide/recorder": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@monaco-editor/react": "^4.6.0",
     "better-sqlite3": "^9.0.0",
     "keytar": "^7.9.0",
-    "playwright": "^1.40.0"
+    "playwright": "^1.40.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/ws": "^8.5.0",
     "@types/better-sqlite3": "^7.6.0",
     "@vitejs/plugin-react": "^4.2.0",
     "electron": "^28.0.0",
