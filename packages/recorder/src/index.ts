@@ -153,28 +153,137 @@ export class RecorderEngine {
         ;(window as any).__recordingEvents.push({ type, element, value, timestamp: Date.now() })
       }
 
+      const generateSelectorsForCurrentElement = (element: Element) => {
+        const selectors: any[] = []
+        
+        if (element.id) {
+          selectors.push({
+            selector: `#${element.id}`,
+            type: 'id',
+            score: 100,
+            isUnique: document.querySelectorAll(`#${element.id}`).length === 1
+          })
+        }
+        
+        if (element.getAttribute && element.getAttribute('data-testid')) {
+          selectors.push({
+            selector: `[data-testid="${element.getAttribute('data-testid')}"]`,
+            type: 'data-testid',
+            score: 90,
+            isUnique: document.querySelectorAll(`[data-testid="${element.getAttribute('data-testid')}"]`).length === 1
+          })
+        }
+        
+        const nameAttr = element.getAttribute('name')
+        if (nameAttr) {
+          selectors.push({
+            selector: `[name="${nameAttr}"]`,
+            type: 'css',
+            score: 85,
+            isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
+          })
+        }
+        
+        if (element.className && typeof element.className === 'string') {
+          const classes = element.className.split(' ').filter((c: string) => c.trim())
+          if (classes.length > 0) {
+            const classSelector = '.' + classes.join('.')
+            selectors.push({
+              selector: classSelector,
+              type: 'css',
+              score: 70,
+              isUnique: document.querySelectorAll(classSelector).length === 1
+            })
+          }
+        }
+        
+        const ariaLabel = element.getAttribute('aria-label')
+        if (ariaLabel) {
+          selectors.push({
+            selector: `[aria-label="${ariaLabel}"]`,
+            type: 'aria-label',
+            score: 85,
+            isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
+          })
+        }
+        
+        if (element.tagName === 'BUTTON' || element.tagName === 'A') {
+          const text = element.textContent?.trim()
+          if (text) {
+            selectors.push({
+              selector: `${element.tagName.toLowerCase()}:has-text("${text}")`,
+              type: 'text',
+              score: 80,
+              isUnique: Array.from(document.querySelectorAll(element.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+            })
+          }
+        }
+        
+        selectors.push({
+          selector: element.tagName.toLowerCase(),
+          type: 'css',
+          score: 30,
+          isUnique: false
+        })
+        
+        return selectors.sort((a, b) => b.score - a.score)
+      }
+
       document.addEventListener('click', (e) => {
-        captureEvent('click', e.target as Element)
+        const selectors = generateSelectorsForCurrentElement(e.target as Element)
+        captureEvent('click', e.target as Element, { selectors })
       }, true)
 
       document.addEventListener('input', (e) => {
         const target = e.target as HTMLInputElement
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-          captureEvent('type', target, target.value)
+          const selectors = generateSelectorsForCurrentElement(target)
+          captureEvent('type', target, { value: target.value, selectors })
         }
       }, true)
 
       document.addEventListener('change', (e) => {
         const target = e.target as HTMLInputElement | HTMLSelectElement
+        const selectors = generateSelectorsForCurrentElement(target)
         let value: any = target.value
-        if (target.type === 'checkbox' || target.type === 'radio') {
+        let eventType = 'select'
+        
+        if (target.type === 'checkbox') {
           value = (target as HTMLInputElement).checked
+          eventType = 'checkbox'
+        } else if (target.type === 'radio') {
+          value = (target as HTMLInputElement).checked
+          eventType = 'radio'
+        } else if (target.tagName === 'SELECT') {
+          eventType = 'select'
         }
-        captureEvent('select', target, value)
+        
+        captureEvent(eventType, target, { value, selectors })
       }, true)
 
       document.addEventListener('dblclick', (e) => {
-        captureEvent('doubleClick', e.target as Element)
+        const selectors = generateSelectorsForCurrentElement(e.target as Element)
+        captureEvent('doubleClick', e.target as Element, { selectors })
+      }, true)
+
+      document.addEventListener('focus', (e) => {
+        const target = e.target as Element
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+          const selectors = generateSelectorsForCurrentElement(target)
+          captureEvent('focus', target, { selectors })
+        }
+      }, true)
+
+      document.addEventListener('submit', (e) => {
+        const selectors = generateSelectorsForCurrentElement(e.target as Element)
+        captureEvent('submit', e.target as Element, { selectors })
+      }, true)
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.target as Element).tagName === 'INPUT') {
+          const selectors = generateSelectorsForCurrentElement(e.target as Element)
+          captureEvent('keypress', e.target as Element, { key: e.key, selectors })
+        }
       }, true)
     })
   }
@@ -192,7 +301,8 @@ export class RecorderEngine {
 
         for (const event of events) {
           const selectors = await this.generateSelectorsFromEvent(event)
-          await this.captureStep(event.type, this.page!.url(), selectors, event.value)
+          const value = event.value && typeof event.value === 'object' ? event.value.value : event.value
+          await this.captureStep(event.type, this.page!.url(), selectors, value)
         }
       } catch (error) {
         console.error('Error polling events:', error)
@@ -208,6 +318,10 @@ export class RecorderEngine {
 
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {
     if (!this.page) return []
+    
+    if (event.value && event.value.selectors) {
+      return event.value.selectors
+    }
     
     return await this.page.evaluate((eventData) => {
       const el = eventData.element
@@ -233,6 +347,16 @@ export class RecorderEngine {
         })
       }
       
+      const nameAttr = el.getAttribute('name')
+      if (nameAttr) {
+        selectors.push({
+          selector: `[name="${nameAttr}"]`,
+          type: 'css',
+          score: 85,
+          isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
+        })
+      }
+      
       if (el.className && typeof el.className === 'string') {
         const classes = el.className.split(' ').filter((c: string) => c.trim())
         if (classes.length > 0) {
@@ -244,6 +368,16 @@ export class RecorderEngine {
             isUnique: document.querySelectorAll(classSelector).length === 1
           })
         }
+      }
+      
+      const ariaLabel = el.getAttribute('aria-label')
+      if (ariaLabel) {
+        selectors.push({
+          selector: `[aria-label="${ariaLabel}"]`,
+          type: 'aria-label',
+          score: 85,
+          isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
+        })
       }
       
       if (el.tagName === 'BUTTON' || el.tagName === 'A') {

@@ -12,7 +12,7 @@ export interface RunnerOptions {
 
 export class TestRunner {
   private defaultOptions: RunnerOptions = {
-    headless: true,
+    headless: false,
     timeout: 30000,
     retries: 3,
     outputDir: 'test-results'

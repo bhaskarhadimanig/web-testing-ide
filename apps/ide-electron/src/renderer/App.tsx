@@ -183,24 +183,31 @@ test('recorded session', async ({ page }) => {
   }
 
   const handleExport = async () => {
-    if (!currentSession) {
-      console.error('No session to export')
-      alert('Please record a session first before exporting')
-      return
-    }
-
     try {
+      if (!currentSession || currentSession.steps.length === 0) {
+        alert('No recording session to export. Please record some steps first.')
+        return
+      }
+
       const sessionData = JSON.stringify(currentSession, null, 2)
+      
       const blob = new Blob([sessionData], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${currentSession.name || 'recording'}.json`
+      a.download = `recording-${currentSession.id || Date.now()}.json`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      
+      setTestProgress({ progress: 100, currentStep: 'Recording exported successfully!' })
+      setTimeout(() => setTestProgress({ progress: 0, currentStep: '' }), 2000)
     } catch (error) {
       console.error('Failed to export recording:', error)
-      alert(`Failed to export recording: ${error instanceof Error ? error.message : String(error)}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      setTestProgress({ progress: 0, currentStep: `Failed to export: ${errorMessage}` })
+      setTimeout(() => setTestProgress({ progress: 0, currentStep: '' }), 3000)
     }
   }
 

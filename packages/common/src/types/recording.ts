@@ -1,6 +1,6 @@
 export interface RecorderStep {
   id: string
-  type: 'click' | 'doubleClick' | 'type' | 'navigate' | 'select' | 'upload' | 'download' | 'drag' | 'wait' | 'screenshot' | 'assertion' | 'checkbox' | 'radio'
+  type: 'click' | 'doubleClick' | 'type' | 'navigate' | 'select' | 'upload' | 'download' | 'drag' | 'wait' | 'screenshot' | 'assertion' | 'checkbox' | 'radio' | 'focus' | 'submit' | 'keypress'
   timestamp: number
   url: string
   viewport: { width: number; height: number }
