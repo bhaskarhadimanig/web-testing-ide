@@ -56,7 +56,7 @@ export class RecorderEngine {
     await fs.mkdir(outputDir, { recursive: true })
     await fs.mkdir(join(outputDir, 'screenshots'), { recursive: true })
 
-    this.setupEventListeners()
+    await this.setupEventListeners()
     
     this.isRecording = true
     
@@ -103,7 +103,7 @@ export class RecorderEngine {
     throw new Error(`Unsupported export format: ${format}`)
   }
 
-  private setupEventListeners(): void {
+  private async setupEventListeners(): Promise<void> {
     if (!this.page) return
 
     this.page.on('framenavigated', async (frame) => {
@@ -111,6 +111,9 @@ export class RecorderEngine {
         await this.captureStep('navigate', frame.url(), [])
       }
     })
+
+    await this.setupDOMEventListeners()
+    this.startEventPolling()
   }
 
   private async captureStep(type: RecorderStep['type'], url: string, selectors: SelectorCandidate[], value?: any): Promise<void> {
@@ -139,6 +142,131 @@ export class RecorderEngine {
     }
 
     this.steps.push(step)
+  }
+
+  private async setupDOMEventListeners(): Promise<void> {
+    if (!this.page) return
+
+    await this.page.evaluate(() => {
+      const captureEvent = (type: string, element: Element, value?: any) => {
+        (window as any).__recordingEvents = (window as any).__recordingEvents || []
+        ;(window as any).__recordingEvents.push({ type, element, value, timestamp: Date.now() })
+      }
+
+      document.addEventListener('click', (e) => {
+        captureEvent('click', e.target as Element)
+      }, true)
+
+      document.addEventListener('input', (e) => {
+        const target = e.target as HTMLInputElement
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          captureEvent('type', target, target.value)
+        }
+      }, true)
+
+      document.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement | HTMLSelectElement
+        let value: any = target.value
+        if (target.type === 'checkbox' || target.type === 'radio') {
+          value = (target as HTMLInputElement).checked
+        }
+        captureEvent('select', target, value)
+      }, true)
+
+      document.addEventListener('dblclick', (e) => {
+        captureEvent('doubleClick', e.target as Element)
+      }, true)
+    })
+  }
+
+  private startEventPolling(): void {
+    const pollEvents = async () => {
+      if (!this.isRecording || !this.page) return
+
+      try {
+        const events = await this.page.evaluate(() => {
+          const events = (window as any).__recordingEvents || []
+          ;(window as any).__recordingEvents = []
+          return events
+        })
+
+        for (const event of events) {
+          const selectors = await this.generateSelectorsFromEvent(event)
+          await this.captureStep(event.type, this.page!.url(), selectors, event.value)
+        }
+      } catch (error) {
+        console.error('Error polling events:', error)
+      }
+
+      if (this.isRecording) {
+        setTimeout(pollEvents, 100)
+      }
+    }
+
+    setTimeout(pollEvents, 100)
+  }
+
+  private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {
+    if (!this.page) return []
+    
+    return await this.page.evaluate((eventData) => {
+      const el = eventData.element
+      if (!el) return []
+      
+      const selectors: SelectorCandidate[] = []
+      
+      if (el.id) {
+        selectors.push({
+          selector: `#${el.id}`,
+          type: 'id',
+          score: 100,
+          isUnique: document.querySelectorAll(`#${el.id}`).length === 1
+        })
+      }
+      
+      if (el.getAttribute && el.getAttribute('data-testid')) {
+        selectors.push({
+          selector: `[data-testid="${el.getAttribute('data-testid')}"]`,
+          type: 'data-testid',
+          score: 90,
+          isUnique: document.querySelectorAll(`[data-testid="${el.getAttribute('data-testid')}"]`).length === 1
+        })
+      }
+      
+      if (el.className && typeof el.className === 'string') {
+        const classes = el.className.split(' ').filter((c: string) => c.trim())
+        if (classes.length > 0) {
+          const classSelector = '.' + classes.join('.')
+          selectors.push({
+            selector: classSelector,
+            type: 'css',
+            score: 70,
+            isUnique: document.querySelectorAll(classSelector).length === 1
+          })
+        }
+      }
+      
+      if (el.tagName === 'BUTTON' || el.tagName === 'A') {
+        const text = el.textContent?.trim()
+        if (text) {
+          selectors.push({
+            selector: `${el.tagName.toLowerCase()}:has-text("${text}")`,
+            type: 'text',
+            score: 80,
+            isUnique: Array.from(document.querySelectorAll(el.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+          })
+        }
+      }
+      
+      selectors.push({
+        selector: el.tagName.toLowerCase(),
+        type: 'css',
+        score: 30,
+        isUnique: false
+      })
+      
+      return selectors.sort((a, b) => b.score - a.score)
+    }, event)
   }
 
   private async generateSelectors(): Promise<SelectorCandidate[]> {

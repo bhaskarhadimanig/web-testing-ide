@@ -335,6 +335,12 @@ export class TestRunner {
       case 'type':
         stepCode = `await page.fill('${selector}', '${step.value || ''}')`
         break
+      case 'checkbox':
+        stepCode = step.value ? `await page.check('${selector}')` : `await page.uncheck('${selector}')`
+        break
+      case 'radio':
+        stepCode = `await page.check('${selector}')`
+        break
       default:
         if (step.type === 'assertion' && (step as any).assertion) {
           const assertion = (step as any).assertion
@@ -396,54 +402,196 @@ test('Single step execution', async ({ page }) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Report - ${testRun.id}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .header { border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
-        .status { padding: 8px 16px; border-radius: 4px; font-weight: bold; display: inline-block; }
-        .status.passed { background: #d4edda; color: #155724; }
-        .status.failed { background: #f8d7da; color: #721c24; }
-        .artifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-        .artifact { border: 1px solid #ddd; border-radius: 4px; padding: 15px; }
-        .artifact img { max-width: 100%; height: auto; border-radius: 4px; }
-        .errors { background: #f8f9fa; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; }
-        .error { margin-bottom: 10px; font-family: monospace; font-size: 14px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 16px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; font-weight: 700; }
+        .header p { font-size: 1.1rem; opacity: 0.9; margin: 5px 0; }
+        .status { 
+            padding: 12px 24px; 
+            border-radius: 25px; 
+            font-weight: bold; 
+            display: inline-block;
+            margin: 10px 0;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status.passed { 
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .status.failed { 
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+        .content { padding: 40px; }
+        .section { margin-bottom: 40px; }
+        .section h3 { 
+            font-size: 1.8rem; 
+            margin-bottom: 20px; 
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .artifacts { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+            gap: 30px; 
+        }
+        .artifact { 
+            border: 1px solid #e1e8ed; 
+            border-radius: 12px; 
+            padding: 20px;
+            background: #f8f9fa;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .artifact:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .artifact h4 { 
+            color: #2c3e50; 
+            margin-bottom: 15px; 
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .artifact img { 
+            max-width: 100%; 
+            height: auto; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        .artifact a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 16px;
+            background: #ecf0f1;
+            border-radius: 6px;
+            display: inline-block;
+            transition: background 0.3s ease;
+        }
+        .artifact a:hover {
+            background: #3498db;
+            color: white;
+        }
+        .errors { 
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            border-radius: 12px;
+            padding: 25px; 
+            margin: 30px 0;
+            border-left: 6px solid #e74c3c;
+        }
+        .error { 
+            margin-bottom: 15px; 
+            font-family: 'Monaco', 'Menlo', monospace; 
+            font-size: 14px;
+            background: rgba(255,255,255,0.8);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Test Report</h1>
+            <h1>🚀 Test Execution Report</h1>
             <p><strong>Run ID:</strong> ${testRun.id}</p>
-            <p><strong>Status:</strong> <span class="status ${testRun.status}">${testRun.status.toUpperCase()}</span></p>
-            <p><strong>Duration:</strong> ${testRun.completedAt! - testRun.startedAt}ms</p>
-            <p><strong>Started:</strong> ${new Date(testRun.startedAt).toLocaleString()}</p>
+            <div class="status ${testRun.status}">${testRun.status}</div>
+            <p><strong>Completed:</strong> ${new Date(testRun.startedAt).toLocaleString()}</p>
         </div>
 
-        ${testRun.errors && testRun.errors.length > 0 ? `
-        <div class="errors">
-            <h3>Errors (${testRun.errors.length})</h3>
-            ${testRun.errors.map((error: any) => `
-                <div class="error">
-                    <strong>Step:</strong> ${error.stepId}<br>
-                    <strong>Message:</strong> ${error.message}
+        <div class="content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value">${testRun.completedAt! - testRun.startedAt}ms</div>
+                    <div class="stat-label">Duration</div>
                 </div>
-            `).join('')}
-        </div>
-        ` : ''}
+                <div class="stat-card">
+                    <div class="stat-value">${testRun.artifacts.length}</div>
+                    <div class="stat-label">Artifacts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${testRun.errors?.length || 0}</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+            </div>
 
-        <h3>Artifacts (${testRun.artifacts.length})</h3>
-        <div class="artifacts">
-            ${testRun.artifacts.map((artifact: any) => `
-                <div class="artifact">
-                    <h4>${artifact.type.toUpperCase()}</h4>
-                    ${artifact.type === 'screenshot' ? `
-                        <img src="file://${artifact.path}" alt="Screenshot" />
-                    ` : `
-                        <p><a href="file://${artifact.path}" target="_blank">View ${artifact.type}</a></p>
-                    `}
-                    <p><small>${artifact.path}</small></p>
+            ${testRun.errors && testRun.errors.length > 0 ? `
+            <div class="section">
+                <h3>❌ Errors (${testRun.errors.length})</h3>
+                <div class="errors">
+                    ${testRun.errors.map((error: any) => `
+                        <div class="error">
+                            <strong>Step:</strong> ${error.stepId}<br>
+                            <strong>Message:</strong> ${error.message}
+                        </div>
+                    `).join('')}
                 </div>
-            `).join('')}
+            </div>
+            ` : ''}
+
+            <div class="section">
+                <h3>📸 Test Artifacts (${testRun.artifacts.length})</h3>
+                <div class="artifacts">
+                    ${testRun.artifacts.map((artifact: any) => `
+                        <div class="artifact">
+                            <h4>${artifact.type.toUpperCase()}</h4>
+                            ${artifact.type === 'screenshot' ? `
+                                <img src="file://${artifact.path}" alt="Test Screenshot" />
+                            ` : `
+                                <a href="file://${artifact.path}" target="_blank">📄 View ${artifact.type}</a>
+                            `}
+                            <p><small>📁 ${artifact.path}</small></p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
         </div>
     </div>
 </body>

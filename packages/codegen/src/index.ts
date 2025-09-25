@@ -83,6 +83,12 @@ export class CodeGenerator {
       case 'type':
         return `    await page.fill('${selector}', '${step.value || ''}', { timeout: ${timeout} })`
       
+      case 'checkbox':
+        return step.value ? `    await page.check('${selector}', { timeout: ${timeout} })` : `    await page.uncheck('${selector}', { timeout: ${timeout} })`
+      
+      case 'radio':
+        return `    await page.check('${selector}', { timeout: ${timeout} })`
+      
       case 'select':
         return `    await page.selectOption('${selector}', '${step.value || ''}', { timeout: ${timeout} })`
       
@@ -144,6 +150,12 @@ export class CodeGenerator {
       
       case 'type':
         return `    cy.get('${selector}').type('${step.value || ''}')`
+      
+      case 'checkbox':
+        return step.value ? `    cy.get('${selector}').check()` : `    cy.get('${selector}').uncheck()`
+      
+      case 'radio':
+        return `    cy.get('${selector}').check()`
       
       case 'select':
         return `    cy.get('${selector}').select('${step.value || ''}')`
@@ -255,6 +267,19 @@ import time`
         return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
         element.clear()
         element.send_keys('${step.value || ''}')`
+      }
+      
+      case 'checkbox':
+      case 'radio': {
+        if (isJava) {
+          return `        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}")));
+        if (${step.value ? 'true' : 'false'} != element.isSelected()) {
+            element.click();
+        }`
+        }
+        return `        element = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}')))
+        if ${step.value ? 'True' : 'False'} != element.is_selected():
+            element.click()`
       }
       
       case 'wait': {

@@ -143,7 +143,7 @@ test('recorded session', async ({ page }) => {
       setTestProgress({ progress: 50, currentStep: 'Running test steps...' })
       
       const result = await window.electronAPI.runner.runTest(testCode, {
-        headless: true,
+        headless: false,
         isGeneratedCode: true
       })
       
@@ -504,6 +504,7 @@ test('recorded session', async ({ page }) => {
   const handleRunSingleStep = async (step: RecorderStep) => {
     if (!window.electronAPI.runner.runSingleStep) {
       console.error('Single step execution not supported')
+      alert('Single step execution is not supported in this version')
       return
     }
 
@@ -511,17 +512,26 @@ test('recorded session', async ({ page }) => {
     setTestProgress({ progress: 0, currentStep: `Running step: ${step.type}` })
 
     try {
-      const result = await window.electronAPI.runner.runSingleStep(step, { headless: true })
+      const result = await window.electronAPI.runner.runSingleStep(step, { headless: false })
       setTestProgress({ progress: 100, currentStep: 'Step completed!' })
       
-      setRunResult({
-        status: result.result?.status || 'unknown',
-        outputDir: result.outputDir,
-        reportPath: result.outputDir ? `${result.outputDir}/report.html` : undefined,
-        singleStep: true
-      })
+      if (result.success) {
+        setRunResult({
+          status: result.result?.status || 'passed',
+          outputDir: result.outputDir,
+          reportPath: result.outputDir ? `${result.outputDir}/report.html` : undefined,
+          singleStep: true
+        })
+      } else {
+        setRunResult({
+          status: 'failed',
+          error: result.error,
+          singleStep: true
+        })
+      }
     } catch (error) {
       console.error('Failed to run single step:', error)
+      alert(`Failed to run step: ${error instanceof Error ? error.message : String(error)}`)
       setRunResult({
         status: 'failed',
         error: error instanceof Error ? error.message : String(error),
