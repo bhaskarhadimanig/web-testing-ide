@@ -13,7 +13,9 @@
     "dev": "pnpm --filter ide-electron dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "lint": "echo 'Linting disabled in Phase 1 - will be fixed in Phase 2'",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "prepare": "husky install",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "package": "pnpm --filter ide-electron package"
   },
@@ -21,7 +23,10 @@
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0",
     "prettier": "^3.0.0",
-    "eslint": "^8.0.0"
+    "eslint": "^8.0.0",
+    "husky": "^8.0.0",
+    "@commitlint/cli": "^18.0.0",
+    "@commitlint/config-conventional": "^18.0.0"
   },
   "engines": {
     "node": ">=18.0.0",

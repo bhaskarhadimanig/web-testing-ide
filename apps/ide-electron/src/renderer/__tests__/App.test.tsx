@@ -2,14 +2,29 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import App from '../App'
 
-test('renders welcome message', () => {
+test('renders Web Testing IDE title', () => {
   render(<App />)
-  const welcomeElement = screen.getByText(/Welcome to Web Testing IDE/i)
-  expect(welcomeElement).toBeInTheDocument()
+  const titleElement = screen.getByText(/Web Testing IDE/i)
+  expect(titleElement).toBeInTheDocument()
 })
 
-test('renders phase 1 message', () => {
+test('renders toolbar buttons', () => {
   render(<App />)
-  const phaseElement = screen.getByText(/Phase 1: Basic Electron shell is ready!/i)
-  expect(phaseElement).toBeInTheDocument()
+  expect(screen.getByText('Record')).toBeInTheDocument()
+  expect(screen.getByText('Stop')).toBeInTheDocument()
+  expect(screen.getByText('Generate')).toBeInTheDocument()
+  expect(screen.getByText('Run')).toBeInTheDocument()
+  expect(screen.getByText('Export')).toBeInTheDocument()
+})
+
+test('renders recording steps panel', () => {
+  render(<App />)
+  const stepsPanel = screen.getByRole('heading', { name: /Recording Steps/i })
+  expect(stepsPanel).toBeInTheDocument()
+})
+
+test('renders tab navigation', () => {
+  render(<App />)
+  expect(screen.getByText('Steps')).toBeInTheDocument()
+  expect(screen.getByText('Code')).toBeInTheDocument()
 })
