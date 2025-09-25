@@ -18,6 +18,20 @@ export interface SelectorCandidate {
   isUnique: boolean
 }
 
+export interface SelectorResult {
+  chosenSelector: SelectorCandidate
+  reliabilityScore: number
+  fallbackSelectors: SelectorCandidate[]
+}
+
+export interface CodegenOptions {
+  framework: 'playwright' | 'cypress' | 'selenium'
+  language: 'typescript' | 'javascript' | 'python'
+  defaultTimeoutMs?: number
+  retryAttempts?: number
+  autoWait?: boolean
+}
+
 export interface StepMetadata {
   elementAttributes?: Record<string, string>
   boundingBox?: { x: number; y: number; width: number; height: number }
