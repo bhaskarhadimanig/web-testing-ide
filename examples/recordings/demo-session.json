@@ -1,0 +1,111 @@
+{
+  "id": "demo-session-001",
+  "name": "Demo Playwright Site Navigation",
+  "url": "https://demo.playwright.dev",
+  "createdAt": 1695648000000,
+  "updatedAt": 1695648000000,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+  "metadata": {
+    "description": "Example recording showing navigation through the Playwright demo site",
+    "tags": ["demo", "navigation", "playwright"],
+    "duration": 15000,
+    "totalSteps": 4
+  },
+  "steps": [
+    {
+      "id": "step-001",
+      "type": "navigate",
+      "timestamp": 1695648000000,
+      "url": "https://demo.playwright.dev",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "selectors": [],
+      "screenshot": "screenshots/demo-session-001/step-001.png",
+      "metadata": {
+        "tagName": "html"
+      }
+    },
+    {
+      "id": "step-002",
+      "type": "click",
+      "timestamp": 1695648003000,
+      "url": "https://demo.playwright.dev",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "selectors": [
+        {
+          "selector": "text=Get started",
+          "type": "text",
+          "score": 0.9,
+          "isUnique": true
+        },
+        {
+          "selector": "a[href*=\"intro\"]",
+          "type": "css",
+          "score": 0.8,
+          "isUnique": true
+        },
+        {
+          "selector": "//a[contains(text(), 'Get started')]",
+          "type": "xpath",
+          "score": 0.7,
+          "isUnique": true
+        }
+      ],
+      "screenshot": "screenshots/demo-session-001/step-002.png",
+      "metadata": {
+        "elementAttributes": {
+          "href": "/docs/intro",
+          "class": "button button--secondary button--lg"
+        },
+        "boundingBox": {
+          "x": 100,
+          "y": 200,
+          "width": 120,
+          "height": 40
+        },
+        "innerText": "Get started",
+        "tagName": "a"
+      }
+    },
+    {
+      "id": "step-003",
+      "type": "wait",
+      "timestamp": 1695648005000,
+      "url": "https://demo.playwright.dev/docs/intro",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "selectors": [],
+      "value": 2000,
+      "screenshot": "screenshots/demo-session-001/step-003.png",
+      "metadata": {
+        "tagName": "html"
+      }
+    },
+    {
+      "id": "step-004",
+      "type": "screenshot",
+      "timestamp": 1695648007000,
+      "url": "https://demo.playwright.dev/docs/intro",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "selectors": [],
+      "screenshot": "screenshots/demo-session-001/step-004.png",
+      "metadata": {
+        "tagName": "html"
+      }
+    }
+  ]
+}
