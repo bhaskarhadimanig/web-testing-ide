@@ -5,7 +5,7 @@ interface MonacoEditorProps {
   value: string
   onChange: (value: string) => void
   framework: 'playwright' | 'cypress' | 'selenium'
-  language: 'typescript' | 'javascript' | 'python'
+  language: 'typescript' | 'javascript' | 'python' | 'java'
   readOnly?: boolean
 }
 

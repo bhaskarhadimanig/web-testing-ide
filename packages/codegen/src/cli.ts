@@ -8,7 +8,7 @@ interface CliOptions {
   input: string
   output: string
   framework: 'playwright' | 'cypress' | 'selenium'
-  lang: 'typescript' | 'javascript' | 'python'
+  lang: 'typescript' | 'javascript' | 'python' | 'java'
   timeout?: number
   retries?: number
   autoWait?: boolean
@@ -51,7 +51,7 @@ async function main() {
     console.error('Usage: codegen --input <input.json> --output <output.test.ts> [options]')
     console.error('Options:')
     console.error('  --framework <playwright|cypress|selenium> (default: playwright)')
-    console.error('  --lang <typescript|javascript|python> (default: typescript)')
+    console.error('  --lang <typescript|javascript|python|java> (default: typescript)')
     console.error('  --timeout <ms> (default: 30000)')
     console.error('  --retries <number> (default: 3)')
     console.error('  --autoWait <true|false> (default: true)')
