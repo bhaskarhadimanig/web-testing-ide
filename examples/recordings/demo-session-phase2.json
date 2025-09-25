@@ -1,0 +1,72 @@
+{
+  "id": "session-1727268000000",
+  "name": "Demo Recording Phase 2",
+  "url": "https://demo.playwright.dev",
+  "createdAt": 1727268000000,
+  "updatedAt": 1727268120000,
+  "steps": [
+    {
+      "id": "step-001",
+      "type": "navigate",
+      "timestamp": 1727268000000,
+      "url": "https://demo.playwright.dev",
+      "viewport": { "width": 1280, "height": 720 },
+      "selectors": [],
+      "screenshot": "screenshots/step-001.png",
+      "metadata": {
+        "tagName": "html"
+      }
+    },
+    {
+      "id": "step-002",
+      "type": "click",
+      "timestamp": 1727268005000,
+      "url": "https://demo.playwright.dev",
+      "viewport": { "width": 1280, "height": 720 },
+      "selectors": [
+        {
+          "selector": "text=Get started",
+          "type": "text",
+          "score": 0.8,
+          "isUnique": true
+        },
+        {
+          "selector": "a[href='/docs/intro']",
+          "type": "css",
+          "score": 0.7,
+          "isUnique": true
+        }
+      ],
+      "screenshot": "screenshots/step-002.png",
+      "metadata": {
+        "elementAttributes": {
+          "href": "/docs/intro",
+          "class": "button button--secondary button--lg"
+        },
+        "boundingBox": { "x": 100, "y": 200, "width": 120, "height": 40 },
+        "innerText": "Get started",
+        "tagName": "a"
+      }
+    },
+    {
+      "id": "step-003",
+      "type": "navigate",
+      "timestamp": 1727268010000,
+      "url": "https://demo.playwright.dev/docs/intro",
+      "viewport": { "width": 1280, "height": 720 },
+      "selectors": [],
+      "screenshot": "screenshots/step-003.png",
+      "metadata": {
+        "tagName": "html"
+      }
+    }
+  ],
+  "viewport": { "width": 1280, "height": 720 },
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "metadata": {
+    "description": "Demo recording for Phase 2 implementation",
+    "tags": ["demo", "phase2", "recorded"],
+    "duration": 120000,
+    "totalSteps": 3
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@web-testing-ide/extension",
+  "version": "0.1.0",
+  "description": "Browser extension for Web Testing IDE recording",
+  "scripts": {
+    "build": "echo 'Extension build complete'",
+    "clean": "rm -rf dist node_modules"
+  }
+}

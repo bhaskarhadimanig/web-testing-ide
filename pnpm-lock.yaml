@@ -35,6 +35,12 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.6.0
         version: 4.7.0(monaco-editor@0.53.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@web-testing-ide/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@web-testing-ide/recorder':
+        specifier: workspace:*
+        version: link:../../packages/recorder
       better-sqlite3:
         specifier: ^9.0.0
         version: 9.6.0
@@ -50,6 +56,9 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.3
     devDependencies:
       '@playwright/test':
         specifier: ^1.40.0
@@ -75,6 +84,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.2.0
         version: 18.3.7(@types/react@18.3.24)
+      '@types/ws':
+        specifier: ^8.5.0
+        version: 8.18.1
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.0.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1)(typescript@5.9.2)
@@ -189,6 +201,9 @@ importers:
         specifier: ^1.40.0
         version: 1.55.1
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.8.0
       '@types/jest':
         specifier: ^29.5.0
         version: 29.5.14
@@ -269,6 +284,8 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.2
+
+  tools/extension: {}
 
 packages:
 
@@ -1118,6 +1135,9 @@ packages:
 
   '@types/verror@1.10.11':
     resolution: {integrity: sha512-RlDm9K7+o5stv0Co8i8ZRGxDbrTxhJtgjqjFyVh/tXQyl/rYtTKlnTvZ88oSTeYREWurwx20Js4kTuKCsFkUtg==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -4897,6 +4917,10 @@ snapshots:
 
   '@types/verror@1.10.11':
     optional: true
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 20.19.17
 
   '@types/yargs-parser@21.0.3': {}
 

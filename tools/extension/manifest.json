@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Web Testing IDE Extension",
+  "version": "0.1.0",
+  "description": "Browser extension for Web Testing IDE recording",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Web Testing IDE"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
