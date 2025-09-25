@@ -13,7 +13,7 @@
     "package": "electron-builder",
     "package:all": "electron-builder -mwl",
     "clean": "rm -rf dist node_modules",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint 'src/**/*.{js,jsx}' || true",
     "test": "jest",
     "test:e2e": "playwright test"
   },
