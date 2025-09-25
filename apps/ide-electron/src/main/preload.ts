@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getReport: (runId: string) => ipcRenderer.invoke('runner:get-report', runId)
   },
   file: {
-    saveCode: (code: string, filename: string) => ipcRenderer.invoke('file:save-code', code, filename)
+    saveCode: (code: string, filename: string) => ipcRenderer.invoke('file:save-code', code, filename),
+    openReport: (reportPath: string) => ipcRenderer.invoke('file:open-report', reportPath)
   }
 })

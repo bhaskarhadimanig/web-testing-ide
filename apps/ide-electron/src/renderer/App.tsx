@@ -416,9 +416,9 @@ test('recorded session', async ({ page }) => {
       setTestProgress({ progress: 100, currentStep: 'Step completed!' })
       
       setRunResult({
-        status: result.status,
+        status: result.result?.status || 'unknown',
         outputDir: result.outputDir,
-        reportPath: result.reportPath,
+        reportPath: result.outputDir ? `${result.outputDir}/report.html` : undefined,
         singleStep: true
       })
     } catch (error) {
@@ -637,14 +637,12 @@ test('recorded session', async ({ page }) => {
                 </div>
                 {runResult.reportPath && (
                   <div className="mt-2">
-                    <a 
-                      href={`file://${runResult.reportPath}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-sm underline"
+                    <button
+                      onClick={() => window.electronAPI.file.openReport(runResult.reportPath)}
+                      className="text-blue-600 hover:text-blue-800 text-sm underline bg-transparent border-none cursor-pointer"
                     >
                       View HTML Report
-                    </a>
+                    </button>
                   </div>
                 )}
                 {runResult.error && (

@@ -29,6 +29,7 @@ export interface ElectronAPI {
   }
   file: {
     saveCode: (code: string, filename: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
+    openReport: (reportPath: string) => Promise<{ success: boolean; error?: string }>
   }
 }
 

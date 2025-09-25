@@ -162,3 +162,13 @@ ipcMain.handle('file:save-code', async (event, code: string, filename: string) =
     return { success: false, error: (error as Error).message }
   }
 })
+
+ipcMain.handle('file:open-report', async (event, reportPath: string) => {
+  try {
+    const { shell } = require('electron')
+    await shell.openPath(reportPath)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
