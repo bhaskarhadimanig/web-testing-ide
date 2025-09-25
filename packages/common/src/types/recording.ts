@@ -1,6 +1,6 @@
 export interface RecorderStep {
   id: string
-  type: 'click' | 'doubleClick' | 'type' | 'navigate' | 'select' | 'upload' | 'download' | 'drag' | 'wait' | 'screenshot'
+  type: 'click' | 'doubleClick' | 'type' | 'navigate' | 'select' | 'upload' | 'download' | 'drag' | 'wait' | 'screenshot' | 'assertion'
   timestamp: number
   url: string
   viewport: { width: number; height: number }
@@ -9,6 +9,13 @@ export interface RecorderStep {
   value?: string | number | boolean
   screenshot?: string
   metadata: StepMetadata
+  assertion?: AssertionData
+}
+
+export interface AssertionData {
+  type: 'exists' | 'visible' | 'containsText' | 'urlContains'
+  expectedValue?: string
+  description?: string
 }
 
 export interface SelectorCandidate {

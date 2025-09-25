@@ -123,3 +123,42 @@ ipcMain.handle('runner:get-report', async (event, runId: string) => {
     return { success: false, error: (error as Error).message }
   }
 })
+
+ipcMain.handle('runner:run-single-step', async (event, step: any, options: any) => {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const outputDir = `runs/step-${timestamp}`
+    
+    const result = await runner.runSingleStep(step, {
+      ...options,
+      outputDir
+    })
+    
+    return { success: true, result, outputDir }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('file:save-code', async (event, code: string, filename: string) => {
+  try {
+    const { dialog } = require('electron')
+    const { filePath } = await dialog.showSaveDialog({
+      defaultPath: filename,
+      filters: [
+        { name: 'TypeScript', extensions: ['ts'] },
+        { name: 'JavaScript', extensions: ['js'] },
+        { name: 'Python', extensions: ['py'] }
+      ]
+    })
+    
+    if (filePath) {
+      const fs = require('fs').promises
+      await fs.writeFile(filePath, code, 'utf-8')
+      return { success: true, filePath }
+    }
+    return { success: false, error: 'Save cancelled' }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})

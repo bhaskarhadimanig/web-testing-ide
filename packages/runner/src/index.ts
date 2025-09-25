@@ -1,4 +1,4 @@
-import { RecordingSession, TestRun, TestArtifact, TestError } from '@web-testing-ide/common'
+import { RecordingSession, TestRun, TestArtifact, TestError, RecorderStep } from '@web-testing-ide/common'
 import { spawn } from 'child_process'
 import { promises as fs } from 'fs'
 import { join } from 'path'
@@ -202,6 +202,107 @@ export class TestRunner {
     }
 
     return testFiles
+  }
+
+  async runSingleStep(step: RecorderStep, options: RunnerOptions = {}): Promise<TestRun> {
+    const opts = { ...this.defaultOptions, ...options }
+    const runId = `step-${Date.now()}`
+    const startedAt = Date.now()
+
+    try {
+      const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
+      await fs.mkdir(outputDir, { recursive: true })
+
+      const tempTestCode = this.generateSingleStepTest(step)
+      const tempTestPath = join(outputDir, 'single-step.test.ts')
+      
+      await fs.writeFile(tempTestPath, tempTestCode, 'utf-8')
+      
+      const result = await this.executePlaywrightTest(tempTestPath, outputDir, opts)
+      
+      const testRun: TestRun = {
+        id: runId,
+        sessionId: step.id,
+        status: result.success ? 'passed' : 'failed',
+        startedAt,
+        completedAt: Date.now(),
+        artifacts: result.artifacts,
+        errors: result.errors
+      }
+
+      if (!result.success && result.errors.length > 0) {
+        await this.generateFailureJson(testRun, outputDir)
+      }
+
+      return testRun
+
+    } catch (error) {
+      const testRun: TestRun = {
+        id: runId,
+        sessionId: step.id,
+        status: 'failed',
+        startedAt,
+        completedAt: Date.now(),
+        artifacts: [],
+        errors: [{
+          stepId: step.id,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        }]
+      }
+
+      const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
+      await fs.mkdir(outputDir, { recursive: true })
+      await this.generateFailureJson(testRun, outputDir)
+
+      return testRun
+    }
+  }
+
+  private generateSingleStepTest(step: RecorderStep): string {
+    const selector = step.selectors[0]?.selector || 'body'
+    
+    let stepCode = ''
+    switch (step.type) {
+      case 'navigate':
+        stepCode = `await page.goto('${step.url}')`
+        break
+      case 'click':
+        stepCode = `await page.click('${selector}')`
+        break
+      case 'type':
+        stepCode = `await page.fill('${selector}', '${step.value || ''}')`
+        break
+      default:
+        if (step.type === 'assertion' && (step as any).assertion) {
+          const assertion = (step as any).assertion
+          switch (assertion.type) {
+            case 'exists':
+            case 'visible':
+              stepCode = `await expect(page.locator('${selector}')).toBeVisible()`
+              break
+            case 'containsText':
+              stepCode = `await expect(page.locator('${selector}')).toContainText('${assertion.expectedValue}')`
+              break
+            case 'urlContains':
+              stepCode = `await expect(page).toHaveURL(/${assertion.expectedValue}/)`
+              break
+          }
+        }
+        break
+      case 'screenshot':
+        stepCode = `await page.screenshot({ path: '${step.screenshot || 'screenshot.png'}' })`
+        break
+      case 'wait':
+        stepCode = `await page.waitForTimeout(${step.value || 1000})`
+        break
+    }
+
+    return `import { test, expect } from '@playwright/test'
+
+test('Single step execution', async ({ page }) => {
+  ${stepCode}
+})`
   }
 
   private async generateFailureJson(testRun: TestRun, outputDir: string): Promise<void> {

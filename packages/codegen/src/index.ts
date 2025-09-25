@@ -92,8 +92,26 @@ export class CodeGenerator {
       case 'screenshot':
         return `    await page.screenshot({ path: '${step.screenshot || 'screenshot.png'}' })`
       
+      case 'assertion':
+        if (step.assertion) {
+          const assertion = step.assertion
+          switch (assertion.type) {
+            case 'exists':
+            case 'visible':
+              return `    await expect(page.locator('${selector}')).toBeVisible({ timeout: ${timeout} })`
+            case 'containsText':
+              return `    await expect(page.locator('${selector}')).toContainText('${assertion.expectedValue}', { timeout: ${timeout} })`
+            case 'urlContains':
+              return `    await expect(page).toHaveURL(/${assertion.expectedValue}/, { timeout: ${timeout} })`
+            default:
+              return `    // Unsupported assertion type: ${assertion.type}`
+          }
+        }
+        return `    // Invalid assertion step`
+      
       default:
         return `    // Unsupported step type: ${step.type}`
+      
     }
   }
 
@@ -136,8 +154,26 @@ export class CodeGenerator {
       case 'screenshot':
         return `    cy.screenshot('${step.screenshot || 'screenshot'}')`
       
+      case 'assertion':
+        if (step.assertion) {
+          const assertion = step.assertion
+          switch (assertion.type) {
+            case 'exists':
+            case 'visible':
+              return `    cy.get('${selector}').should('be.visible')`
+            case 'containsText':
+              return `    cy.get('${selector}').should('contain.text', '${assertion.expectedValue}')`
+            case 'urlContains':
+              return `    cy.url().should('include', '${assertion.expectedValue}')`
+            default:
+              return `    // Unsupported assertion type: ${assertion.type}`
+          }
+        }
+        return `    // Invalid assertion step`
+      
       default:
         return `    // Unsupported step type: ${step.type}`
+      
     }
   }
 
@@ -184,6 +220,23 @@ import time`
       
       case 'screenshot':
         return `        self.driver.save_screenshot('${step.screenshot || 'screenshot.png'}')`
+      
+      case 'assertion':
+        if (step.assertion) {
+          const assertion = step.assertion
+          switch (assertion.type) {
+            case 'exists':
+            case 'visible':
+              return `        assert self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '${selector}')))`
+            case 'containsText':
+              return `        assert '${assertion.expectedValue}' in self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}'))).text`
+            case 'urlContains':
+              return `        assert '${assertion.expectedValue}' in self.driver.current_url`
+            default:
+              return `        # Unsupported assertion type: ${assertion.type}`
+          }
+        }
+        return `        # Invalid assertion step`
       
       default:
         return `        # Unsupported step type: ${step.type}`
