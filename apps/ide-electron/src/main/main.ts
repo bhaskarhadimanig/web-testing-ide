@@ -99,15 +99,17 @@ ipcMain.handle('recorder:export', async (event, format: string) => {
   }
 })
 
-ipcMain.handle('runner:run-test', async (event, testPath: string, options: any) => {
+ipcMain.handle('runner:run-test', async (event, testPathOrCode: string, options: any) => {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const outputDir = join(process.cwd(), 'runs', timestamp)
     
-    const result = await runner.runTest(testPath, {
-      ...options,
-      outputDir
-    })
+    let result
+    if (options.isGeneratedCode) {
+      result = await runner.runGeneratedTest(testPathOrCode, { ...options, outputDir })
+    } else {
+      result = await runner.runTest(testPathOrCode, { ...options, outputDir })
+    }
     
     return { success: true, result, outputDir }
   } catch (error) {
@@ -166,6 +168,12 @@ ipcMain.handle('file:save-code', async (event, code: string, filename: string) =
 ipcMain.handle('file:open-report', async (event, reportPath: string) => {
   try {
     const { shell } = require('electron')
+    const fs = require('fs')
+    
+    if (!fs.existsSync(reportPath)) {
+      return { success: false, error: `Report file not found: ${reportPath}` }
+    }
+    
     await shell.openPath(reportPath)
     return { success: true }
   } catch (error) {

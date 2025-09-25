@@ -23,7 +23,7 @@ export interface ElectronAPI {
     export: (format: string) => Promise<{ success: boolean; data?: string; error?: string }>
   }
   runner: {
-    runTest: (testPath: string, options: any) => Promise<{ success: boolean; result?: any; outputDir?: string; error?: string }>
+    runTest: (testPathOrCode: string, options: any) => Promise<{ success: boolean; result?: any; outputDir?: string; error?: string }>
     runSingleStep: (step: any, options: any) => Promise<{ success: boolean; result?: any; outputDir?: string; error?: string }>
     getReport: (runId: string) => Promise<{ success: boolean; reportPath?: string; error?: string }>
   }

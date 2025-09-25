@@ -71,6 +71,62 @@ export class TestRunner {
     }
   }
 
+  async runGeneratedTest(testCode: string, options: RunnerOptions = {}): Promise<TestRun> {
+    const opts = { ...this.defaultOptions, ...options }
+    const runId = `run-${Date.now()}`
+    const startedAt = Date.now()
+
+    try {
+      const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
+      await fs.mkdir(outputDir, { recursive: true })
+
+      const tempTestPath = join(outputDir, 'generated-test.spec.ts')
+      await fs.writeFile(tempTestPath, testCode, 'utf-8')
+
+      const result = await this.executePlaywrightTest(tempTestPath, outputDir, opts)
+
+      const testRun: TestRun = {
+        id: runId,
+        sessionId: 'generated',
+        status: result.success ? 'passed' : 'failed',
+        startedAt,
+        completedAt: Date.now(),
+        artifacts: result.artifacts,
+        errors: result.errors
+      }
+
+      if (!result.success && result.errors.length > 0) {
+        await this.generateFailureJson(testRun, outputDir)
+      }
+
+      await this.generateHtmlReport(testRun, outputDir)
+
+      return testRun
+
+    } catch (error) {
+      const testRun: TestRun = {
+        id: runId,
+        sessionId: 'generated',
+        status: 'failed',
+        startedAt,
+        completedAt: Date.now(),
+        artifacts: [],
+        errors: [{
+          stepId: 'setup',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        }]
+      }
+
+      const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
+      await fs.mkdir(outputDir, { recursive: true })
+      await this.generateFailureJson(testRun, outputDir)
+      await this.generateHtmlReport(testRun, outputDir)
+
+      return testRun
+    }
+  }
+
   async runAllTests(testDir: string = 'examples/generated', options: RunnerOptions = {}): Promise<TestRun[]> {
     try {
       const testFiles = await this.findTestFiles(testDir)

@@ -88,11 +88,14 @@ test('recorded session', async ({ page }) => {
         setCurrentSession(result.session as RecordingSession)
         setRecordingSteps(result.session.steps as RecorderStep[])
         resetSteps(result.session.steps as RecorderStep[])
+        console.log('Recording session created:', result.session.id)
       } else {
         console.error('Failed to stop recording:', result.error)
+        alert(`Failed to stop recording: ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Failed to stop recording:', error)
+      alert(`Failed to stop recording: ${error}`)
     }
   }
 
@@ -122,6 +125,7 @@ test('recorded session', async ({ page }) => {
   const handleRun = async () => {
     if (!currentSession) {
       console.error('No session to run')
+      alert('Please record a session first before running tests')
       return
     }
 
@@ -131,10 +135,16 @@ test('recorded session', async ({ page }) => {
 
     try {
       console.log('Starting test run...')
-      setTestProgress({ progress: 25, currentStep: 'Running test steps...' })
+      setTestProgress({ progress: 25, currentStep: 'Generating test code...' })
       
-      const result = await window.electronAPI.runner.runTest('examples/generated/demo.test.ts', {
-        headless: true
+      const testCode = generateCode({ ...currentSession, steps: recordingSteps }, framework, language)
+      console.log('Generated test code:', testCode.substring(0, 200) + '...')
+      
+      setTestProgress({ progress: 50, currentStep: 'Running test steps...' })
+      
+      const result = await window.electronAPI.runner.runTest(testCode, {
+        headless: true,
+        isGeneratedCode: true
       })
       
       setTestProgress({ progress: 75, currentStep: 'Collecting results...' })
@@ -145,7 +155,7 @@ test('recorded session', async ({ page }) => {
         setRunResult({
           status: result.result.status,
           outputDir: result.outputDir,
-          reportPath: `${result.outputDir}/report.html`
+          reportPath: result.outputDir ? `${result.outputDir}/report.html` : undefined
         })
         
         const reportResult = await window.electronAPI.runner.getReport(result.result.id)
