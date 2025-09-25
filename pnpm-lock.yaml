@@ -45,6 +45,9 @@ importers:
       '@web-testing-ide/recorder':
         specifier: workspace:*
         version: link:../../packages/recorder
+      '@web-testing-ide/runner':
+        specifier: workspace:*
+        version: link:../../packages/runner
       better-sqlite3:
         specifier: ^9.0.0
         version: 9.6.0

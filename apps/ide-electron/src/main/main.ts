@@ -2,10 +2,12 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { WebSocketServer } from 'ws'
 import { RecorderEngine } from '@web-testing-ide/recorder'
+import { TestRunner } from '@web-testing-ide/runner'
 
 const isDev = process.env.NODE_ENV === 'development'
 let wsServer: WebSocketServer | null = null
 const recorder = new RecorderEngine()
+const runner = new TestRunner()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -92,6 +94,31 @@ ipcMain.handle('recorder:export', async (event, format: string) => {
   try {
     const exported = await recorder.exportRecording(format as 'json')
     return { success: true, data: exported }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('runner:run-test', async (event, testPath: string, options: any) => {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const outputDir = `runs/${timestamp}`
+    
+    const result = await runner.runTest(testPath, {
+      ...options,
+      outputDir
+    })
+    
+    return { success: true, result, outputDir }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('runner:get-report', async (event, runId: string) => {
+  try {
+    const reportPath = join(process.cwd(), 'runs', runId, 'report.html')
+    return { success: true, reportPath }
   } catch (error) {
     return { success: false, error: (error as Error).message }
   }

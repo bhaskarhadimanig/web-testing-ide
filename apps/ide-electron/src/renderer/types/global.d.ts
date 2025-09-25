@@ -22,6 +22,10 @@ export interface ElectronAPI {
     stop: () => Promise<{ success: boolean; session?: RecordingSession; error?: string }>
     export: (format: string) => Promise<{ success: boolean; data?: string; error?: string }>
   }
+  runner: {
+    runTest: (testPath: string, options: any) => Promise<{ success: boolean; result?: any; outputDir?: string; error?: string }>
+    getReport: (runId: string) => Promise<{ success: boolean; reportPath?: string; error?: string }>
+  }
 }
 
 declare global {

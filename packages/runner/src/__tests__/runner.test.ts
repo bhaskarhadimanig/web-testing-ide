@@ -3,8 +3,12 @@ import { TestRunner } from '../index'
 jest.mock('fs', () => ({
   promises: {
     mkdir: jest.fn().mockResolvedValue(undefined),
-    readdir: jest.fn().mockResolvedValue(['test.png', 'trace.zip']),
-    stat: jest.fn().mockResolvedValue({ isFile: () => true })
+    readdir: jest.fn().mockResolvedValue([
+      { name: 'test.png', isFile: () => true },
+      { name: 'trace.zip', isFile: () => true }
+    ]),
+    stat: jest.fn().mockResolvedValue({ isFile: () => true }),
+    writeFile: jest.fn().mockResolvedValue(undefined)
   }
 }))
 
@@ -40,7 +44,7 @@ describe('TestRunner', () => {
 
       mockSpawn.mockReturnValue(mockChild as any)
 
-      const result = await runner.runTest('test.spec.ts')
+      const result = await runner.runTest('test.spec.ts', { outputDir: 'test-output' })
 
       expect(result.status).toBe('passed')
       expect(result.id).toMatch(/^run-\d+$/)
@@ -64,7 +68,7 @@ describe('TestRunner', () => {
 
       mockSpawn.mockReturnValue(mockChild as any)
 
-      const result = await runner.runTest('test.spec.ts')
+      const result = await runner.runTest('test.spec.ts', { outputDir: 'test-output' })
 
       expect(result.status).toBe('failed')
       expect(result.errors).toHaveLength(1)
@@ -84,7 +88,7 @@ describe('TestRunner', () => {
 
       mockSpawn.mockReturnValue(mockChild as any)
 
-      const result = await runner.runTest('test.spec.ts')
+      const result = await runner.runTest('test.spec.ts', { outputDir: 'test-output' })
 
       expect(result.artifacts).toHaveLength(2)
       expect(result.artifacts[0].type).toBe('screenshot')

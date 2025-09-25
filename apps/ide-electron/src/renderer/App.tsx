@@ -47,6 +47,8 @@ test('recorded session', async ({ page }) => {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingSteps, setRecordingSteps] = useState<RecorderStep[]>([])
   const [currentSession, setCurrentSession] = useState<RecordingSession | null>(null)
+  const [isRunning, setIsRunning] = useState(false)
+  const [runResult, setRunResult] = useState<any>(null)
 
   const handleRecord = async () => {
     try {
@@ -87,8 +89,50 @@ test('recorded session', async ({ page }) => {
     }
   }
 
-  const handleRun = () => {
-    console.log('Run clicked')
+  const handleRun = async () => {
+    if (!currentSession) {
+      console.error('No session to run')
+      return
+    }
+
+    setIsRunning(true)
+    setRunResult(null)
+
+    try {
+      console.log('Starting test run...')
+      const result = await window.electronAPI.runner.runTest('examples/generated/demo.test.ts', {
+        headless: true
+      })
+      
+      if (result.success) {
+        console.log('Test run completed:', result.result)
+        console.log('Report available at:', result.outputDir + '/report.html')
+        setRunResult({
+          status: result.result.status,
+          outputDir: result.outputDir,
+          reportPath: `${result.outputDir}/report.html`
+        })
+        
+        const reportResult = await window.electronAPI.runner.getReport(result.result.id)
+        if (reportResult.success) {
+          console.log('HTML Report path:', reportResult.reportPath)
+        }
+      } else {
+        console.error('Test run failed:', result.error)
+        setRunResult({
+          status: 'failed',
+          error: result.error
+        })
+      }
+    } catch (error) {
+      console.error('Failed to run test:', error)
+      setRunResult({
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error)
+      })
+    } finally {
+      setIsRunning(false)
+    }
   }
 
   const handleExport = async () => {
@@ -179,9 +223,14 @@ test('recorded session', async ({ page }) => {
             </button>
             <button
               onClick={handleRun}
-              className="px-3 py-1.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
+              disabled={!currentSession || isRunning}
+              className={`px-3 py-1.5 text-white rounded text-sm font-medium transition-colors ${
+                !currentSession || isRunning
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
             >
-              Run
+              {isRunning ? 'Running...' : 'Run'}
             </button>
             <button
               onClick={handleExport}
@@ -237,6 +286,32 @@ test('recorded session', async ({ page }) => {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+            
+            {runResult && (
+              <div className="mt-4 p-3 border rounded">
+                <h3 className="font-medium text-sm mb-2">Test Run Result</h3>
+                <div className={`text-sm ${runResult.status === 'passed' ? 'text-green-600' : 'text-red-600'}`}>
+                  Status: {runResult.status}
+                </div>
+                {runResult.reportPath && (
+                  <div className="mt-2">
+                    <a 
+                      href={`file://${runResult.reportPath}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm underline"
+                    >
+                      View HTML Report
+                    </a>
+                  </div>
+                )}
+                {runResult.error && (
+                  <div className="mt-2 text-sm text-red-600">
+                    Error: {runResult.error}
+                  </div>
+                )}
               </div>
             )}
           </div>
