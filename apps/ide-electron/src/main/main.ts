@@ -150,7 +150,8 @@ ipcMain.handle('file:save-code', async (event, code: string, filename: string) =
       filters: [
         { name: 'TypeScript', extensions: ['ts'] },
         { name: 'JavaScript', extensions: ['js'] },
-        { name: 'Python', extensions: ['py'] }
+        { name: 'Python', extensions: ['py'] },
+        { name: 'Java', extensions: ['java'] }
       ]
     })
     

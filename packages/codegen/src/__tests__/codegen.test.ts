@@ -60,7 +60,7 @@ describe('CodeGenerator', () => {
 
   describe('generatePlaywrightCode', () => {
     test('should generate valid Playwright test structure', () => {
-      const code = generator.generatePlaywrightCode(mockSession)
+      const code = generator.generatePlaywrightCode(mockSession, { framework: 'playwright', language: 'typescript' })
 
       expect(code).toContain("import { test, expect, Page, Browser } from '@playwright/test'")
       expect(code).toContain("test.describe('Test Recording'")
@@ -70,19 +70,19 @@ describe('CodeGenerator', () => {
     })
 
     test('should generate navigation steps', () => {
-      const code = generator.generatePlaywrightCode(mockSession)
+      const code = generator.generatePlaywrightCode(mockSession, { framework: 'playwright', language: 'typescript' })
 
       expect(code).toContain("await page.goto('https://example.com'")
     })
 
     test('should generate click steps with selectors', () => {
-      const code = generator.generatePlaywrightCode(mockSession)
+      const code = generator.generatePlaywrightCode(mockSession, { framework: 'playwright', language: 'typescript' })
 
       expect(code).toContain("await page.click('#submit-btn'")
     })
 
     test('should generate type steps with values', () => {
-      const code = generator.generatePlaywrightCode(mockSession)
+      const code = generator.generatePlaywrightCode(mockSession, { framework: 'playwright', language: 'typescript' })
 
       expect(code).toContain("await page.fill('[data-testid=\"username\"]', 'testuser'")
     })
@@ -100,7 +100,7 @@ describe('CodeGenerator', () => {
     })
 
     test('should set viewport size', () => {
-      const code = generator.generatePlaywrightCode(mockSession)
+      const code = generator.generatePlaywrightCode(mockSession, { framework: 'playwright', language: 'typescript' })
 
       expect(code).toContain('await page.setViewportSize({"width":1280,"height":720})')
     })
@@ -108,7 +108,7 @@ describe('CodeGenerator', () => {
 
   describe('generateCypressCode', () => {
     test('should generate valid Cypress test structure', () => {
-      const code = generator.generateCypressCode(mockSession)
+      const code = generator.generateCypressCode(mockSession, { framework: 'cypress', language: 'javascript' })
 
       expect(code).toContain("describe('Test Recording'")
       expect(code).toContain('beforeEach')
@@ -117,7 +117,7 @@ describe('CodeGenerator', () => {
     })
 
     test('should generate Cypress commands', () => {
-      const code = generator.generateCypressCode(mockSession)
+      const code = generator.generateCypressCode(mockSession, { framework: 'cypress', language: 'javascript' })
 
       expect(code).toContain("cy.visit('https://example.com')")
       expect(code).toContain("cy.get('#submit-btn').click()")
@@ -127,7 +127,7 @@ describe('CodeGenerator', () => {
 
   describe('generateSeleniumCode', () => {
     test('should generate valid Selenium Python test structure', () => {
-      const code = generator.generateSeleniumCode(mockSession)
+      const code = generator.generateSeleniumCode(mockSession, { framework: 'selenium', language: 'python' })
 
       expect(code).toContain('from selenium import webdriver')
       expect(code).toContain('class TestTestRecording:')
@@ -137,7 +137,7 @@ describe('CodeGenerator', () => {
     })
 
     test('should generate Selenium commands', () => {
-      const code = generator.generateSeleniumCode(mockSession)
+      const code = generator.generateSeleniumCode(mockSession, { framework: 'selenium', language: 'python' })
 
       expect(code).toContain("self.driver.get('https://example.com')")
       expect(code).toContain('element_to_be_clickable')

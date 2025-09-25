@@ -16,7 +16,7 @@ test('recorded session', async ({ page }) => {
   const [isCodeModified, setIsCodeModified] = useState(false)
   const [generatedCode, setGeneratedCode] = useState('')
   const [framework, setFramework] = useState<'playwright' | 'cypress' | 'selenium'>('playwright')
-  const [language, setLanguage] = useState<'typescript' | 'javascript' | 'python'>('typescript')
+  const [language, setLanguage] = useState<'typescript' | 'javascript' | 'python' | 'java'>('typescript')
   const [isRecording, setIsRecording] = useState(false)
   const [currentSession, setCurrentSession] = useState<RecordingSession | null>(null)
   const [isRunning, setIsRunning] = useState(false)
@@ -183,19 +183,24 @@ test('recorded session', async ({ page }) => {
   }
 
   const handleExport = async () => {
+    if (!currentSession) {
+      console.error('No session to export')
+      alert('Please record a session first before exporting')
+      return
+    }
+
     try {
-      const result = await window.electronAPI.recorder.export('json')
-      if (result.success && result.data) {
-        const blob = new Blob([result.data], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'recording.json'
-        a.click()
-        URL.revokeObjectURL(url)
-      }
+      const sessionData = JSON.stringify(currentSession, null, 2)
+      const blob = new Blob([sessionData], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${currentSession.name || 'recording'}.json`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Failed to export recording:', error)
+      alert(`Failed to export recording: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -311,6 +316,90 @@ test('recorded session', async ({ page }) => {
   }
 
   const generateSeleniumCode = (session: RecordingSession, lang: string): string => {
+    if (lang === 'java') {
+      const className = session.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '') + 'Test'
+      let code = `import org.openqa.selenium.WebDriver;\n`
+      code += `import org.openqa.selenium.chrome.ChromeDriver;\n`
+      code += `import org.openqa.selenium.By;\n`
+      code += `import org.openqa.selenium.WebElement;\n`
+      code += `import org.openqa.selenium.support.ui.WebDriverWait;\n`
+      code += `import org.openqa.selenium.support.ui.ExpectedConditions;\n`
+      code += `import org.openqa.selenium.Dimension;\n`
+      code += `import org.junit.jupiter.api.Test;\n`
+      code += `import org.junit.jupiter.api.BeforeEach;\n`
+      code += `import org.junit.jupiter.api.AfterEach;\n`
+      code += `import java.time.Duration;\n\n`
+      
+      code += `public class ${className} {\n`
+      code += `    private WebDriver driver;\n`
+      code += `    private WebDriverWait wait;\n\n`
+      
+      code += `    @BeforeEach\n`
+      code += `    public void setUp() {\n`
+      code += `        driver = new ChromeDriver();\n`
+      code += `        driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));\n`
+      code += `        wait = new WebDriverWait(driver, Duration.ofSeconds(30));\n`
+      code += `    }\n\n`
+      
+      code += `    @Test\n`
+      code += `    public void test${session.name.replace(/\s+/g, '')}() {\n`
+      
+      session.steps.forEach((step: RecorderStep) => {
+        const selector = step.selectors[0]?.selector || 'body'
+        
+        switch (step.type) {
+          case 'navigate':
+            code += `        driver.get("${step.url}");\n`
+            break
+          case 'click':
+            code += `        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}"))).click();\n`
+            break
+          case 'type':
+            if (step.value) {
+              code += `        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")));\n`
+              code += `        element.clear();\n`
+              code += `        element.sendKeys("${step.value}");\n`
+            }
+            break
+          case 'wait': {
+            const waitTime = Number(step.value) || 1000
+            code += `        try { Thread.sleep(${waitTime}); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }\n`
+            break
+          }
+          case 'screenshot':
+            code += `        // Screenshot functionality would require additional imports\n`
+            break
+          default:
+            if (step.type === 'assertion' && (step as any).assertion) {
+              const assertion = (step as any).assertion
+              switch (assertion.type) {
+                case 'exists':
+                case 'visible':
+                  code += `        assert wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("${selector}"))) != null;\n`
+                  break
+                case 'containsText':
+                  code += `        assert wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))).getText().contains("${assertion.expectedValue}");\n`
+                  break
+                case 'urlContains':
+                  code += `        assert driver.getCurrentUrl().contains("${assertion.expectedValue}");\n`
+                  break
+              }
+            }
+            break
+        }
+      })
+      
+      code += `    }\n\n`
+      code += `    @AfterEach\n`
+      code += `    public void tearDown() {\n`
+      code += `        if (driver != null) {\n`
+      code += `            driver.quit();\n`
+      code += `        }\n`
+      code += `    }\n`
+      code += `}\n`
+      return code
+    }
+    
     let code = `from selenium import webdriver\n`
     code += `from selenium.webdriver.common.by import By\n`
     code += `from selenium.webdriver.support.ui import WebDriverWait\n`
@@ -446,7 +535,7 @@ test('recorded session', async ({ page }) => {
 
   const handleSaveCode = async () => {
     try {
-      const extension = language === 'python' ? 'py' : (language === 'javascript' ? 'js' : 'ts')
+      const extension = language === 'python' ? 'py' : language === 'javascript' ? 'js' : language === 'java' ? 'java' : 'ts'
       const filename = `test.${extension}`
       
       const result = await window.electronAPI.file.saveCode(code, filename)
@@ -461,7 +550,7 @@ test('recorded session', async ({ page }) => {
   }
 
   const handleExportCode = () => {
-    const extension = language === 'python' ? 'py' : (language === 'javascript' ? 'js' : 'ts')
+    const extension = language === 'python' ? 'py' : language === 'javascript' ? 'js' : language === 'java' ? 'java' : 'ts'
     const filename = `${currentSession?.name || 'test'}.${extension}`
     
     const blob = new Blob([code], { type: 'text/plain' })
@@ -712,6 +801,7 @@ test('recorded session', async ({ page }) => {
                     <option value="typescript">TypeScript</option>
                     <option value="javascript">JavaScript</option>
                     <option value="python">Python</option>
+                    <option value="java">Java</option>
                   </select>
                   {isCodeModified && (
                     <button

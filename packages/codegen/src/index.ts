@@ -3,7 +3,7 @@ import { RecordingSession, RecorderStep, CodegenOptions } from '@web-testing-ide
 export class CodeGenerator {
   private defaultOptions: CodegenOptions = {
     framework: 'playwright',
-    language: 'typescript',
+    language: 'typescript' as const,
     defaultTimeoutMs: 30000,
     retryAttempts: 3,
     autoWait: true
@@ -24,7 +24,7 @@ export class CodeGenerator {
     }
   }
 
-  generatePlaywrightCode(session: RecordingSession, options: CodegenOptions = this.defaultOptions): string {
+  generatePlaywrightCode(session: RecordingSession, options: CodegenOptions): string {
     const imports = this.generatePlaywrightImports()
     const testSetup = this.generatePlaywrightTestSetup(session, options)
     const testSteps = session.steps.map(step => this.generatePlaywrightStep(step, options)).join('\n')
@@ -33,7 +33,7 @@ export class CodeGenerator {
     return `${imports}\n\n${testSetup}\n${testSteps}\n${testTeardown}\n`
   }
 
-  generateCypressCode(session: RecordingSession, options: CodegenOptions = this.defaultOptions): string {
+  generateCypressCode(session: RecordingSession, options: CodegenOptions): string {
     const testSetup = this.generateCypressTestSetup(session, options)
     const testSteps = session.steps.map(step => this.generateCypressStep(step, options)).join('\n')
     const testTeardown = this.generateCypressTestTeardown()
@@ -41,11 +41,11 @@ export class CodeGenerator {
     return `${testSetup}\n${testSteps}\n${testTeardown}\n`
   }
 
-  generateSeleniumCode(session: RecordingSession, options: CodegenOptions = this.defaultOptions): string {
-    const imports = this.generateSeleniumImports()
+  generateSeleniumCode(session: RecordingSession, options: CodegenOptions): string {
+    const imports = this.generateSeleniumImports(options.language)
     const testSetup = this.generateSeleniumTestSetup(session, options)
     const testSteps = session.steps.map(step => this.generateSeleniumStep(step, options)).join('\n')
-    const testTeardown = this.generateSeleniumTestTeardown()
+    const testTeardown = this.generateSeleniumTestTeardown(options.language)
 
     return `${imports}\n\n${testSetup}\n${testSteps}\n${testTeardown}\n`
   }
@@ -182,7 +182,22 @@ export class CodeGenerator {
 })`
   }
 
-  private generateSeleniumImports(): string {
+  private generateSeleniumImports(language: string = 'python'): string {
+    if (language === 'java') {
+      return `import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.Dimension;
+import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.OutputType;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import java.time.Duration;`
+    }
     return `from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -191,6 +206,22 @@ import time`
   }
 
   private generateSeleniumTestSetup(session: RecordingSession, options: CodegenOptions): string {
+    if ((options.language as string) === 'java') {
+      const className = session.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '') + 'Test'
+      return `public class ${className} {
+    private WebDriver driver;
+    private WebDriverWait wait;
+
+    @BeforeEach
+    public void setUp() {
+        driver = new ChromeDriver();
+        driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));
+        wait = new WebDriverWait(driver, Duration.ofSeconds(${(options.defaultTimeoutMs || 30000) / 1000}));
+    }
+
+    @Test
+    public void test${session.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}() {`
+    }
     return `class Test${session.name.replace(/\s+/g, '')}:
     def setup_method(self):
         self.driver = webdriver.Chrome()
@@ -202,24 +233,41 @@ import time`
 
   private generateSeleniumStep(step: RecorderStep, options: CodegenOptions): string {
     const selector = step.selectors[0]?.selector || 'body'
+    const isJava = (options.language as string) === 'java'
 
     switch (step.type) {
       case 'navigate':
-        return `        self.driver.get('${step.url}')`
+        return isJava 
+          ? `        driver.get("${step.url}");`
+          : `        self.driver.get('${step.url}')`
       
       case 'click':
-        return `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).click()`
+        return isJava
+          ? `        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}"))).click();`
+          : `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).click()`
       
-      case 'type':
+      case 'type': {
+        if (isJava) {
+          return `        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")));
+        element.clear();
+        element.sendKeys("${step.value || ''}");`
+        }
         return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
         element.clear()
         element.send_keys('${step.value || ''}')`
+      }
       
-      case 'wait':
-        return `        time.sleep(${(Number(step.value) || 1000) / 1000})`
+      case 'wait': {
+        const waitTime = Number(step.value) || 1000
+        return isJava
+          ? `        try { Thread.sleep(${waitTime}); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
+          : `        time.sleep(${waitTime / 1000})`
+      }
       
       case 'screenshot':
-        return `        self.driver.save_screenshot('${step.screenshot || 'screenshot.png'}')`
+        return isJava
+          ? `        ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);`
+          : `        self.driver.save_screenshot('${step.screenshot || 'screenshot.png'}')`
       
       case 'assertion':
         if (step.assertion) {
@@ -227,23 +275,40 @@ import time`
           switch (assertion.type) {
             case 'exists':
             case 'visible':
-              return `        assert self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '${selector}')))`
+              return isJava
+                ? `        assert wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("${selector}"))) != null;`
+                : `        assert self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '${selector}')))`
             case 'containsText':
-              return `        assert '${assertion.expectedValue}' in self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}'))).text`
+              return isJava
+                ? `        assert wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))).getText().contains("${assertion.expectedValue}");`
+                : `        assert '${assertion.expectedValue}' in self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}'))).text`
             case 'urlContains':
-              return `        assert '${assertion.expectedValue}' in self.driver.current_url`
+              return isJava
+                ? `        assert driver.getCurrentUrl().contains("${assertion.expectedValue}");`
+                : `        assert '${assertion.expectedValue}' in self.driver.current_url`
             default:
-              return `        # Unsupported assertion type: ${assertion.type}`
+              return isJava ? `        // Unsupported assertion type: ${assertion.type}` : `        # Unsupported assertion type: ${assertion.type}`
           }
         }
-        return `        # Invalid assertion step`
+        return isJava ? `        // Invalid assertion step` : `        # Invalid assertion step`
       
       default:
-        return `        # Unsupported step type: ${step.type}`
+        return isJava ? `        // Unsupported step type: ${step.type}` : `        # Unsupported step type: ${step.type}`
     }
   }
 
-  private generateSeleniumTestTeardown(): string {
+  private generateSeleniumTestTeardown(language: string = 'python'): string {
+    if (language === 'java') {
+      return `    }
+
+    @AfterEach
+    public void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+}`
+    }
     return `
     def teardown_method(self):
         self.driver.quit()`

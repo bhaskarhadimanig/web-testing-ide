@@ -33,7 +33,7 @@ export interface SelectorResult {
 
 export interface CodegenOptions {
   framework: 'playwright' | 'cypress' | 'selenium'
-  language: 'typescript' | 'javascript' | 'python'
+  language: 'typescript' | 'javascript' | 'python' | 'java'
   defaultTimeoutMs?: number
   retryAttempts?: number
   autoWait?: boolean
