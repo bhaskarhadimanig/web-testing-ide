@@ -57,8 +57,13 @@ test('recorded session', async ({ page }) => {
       return
     }
 
+    let normalizedUrl = recordingUrl.trim()
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl
+    }
+
     try {
-      const result = await window.electronAPI.recorder.start(recordingUrl, {
+      const result = await window.electronAPI.recorder.start(normalizedUrl, {
         mode: 'playwright',
         headless: false
       })
@@ -67,9 +72,11 @@ test('recorded session', async ({ page }) => {
         setRecordingSteps([])
       } else {
         console.error('Failed to start recording:', result.error)
+        alert(`Failed to start recording: ${result.error}`)
       }
     } catch (error) {
       console.error('Failed to start recording:', error)
+      alert(`Failed to start recording: ${error}`)
     }
   }
 
