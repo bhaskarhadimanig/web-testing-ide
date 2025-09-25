@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "Web Testing IDE - Electron Desktop App",
   "main": "dist/main/main.js",
+  "homepage": "https://github.com/bhaskarhadimanig/web-testing-ide",
+  "author": {
+    "name": "Web Testing IDE",
+    "email": "contact@webtestingide.com"
+  },
   "scripts": {
     "dev": "concurrently \"pnpm dev:main\" \"pnpm dev:renderer\"",
     "dev:main": "tsc -p tsconfig.main.json && electron dist/main/main.js",
@@ -66,13 +71,34 @@
       "node_modules/**/*"
     ],
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": {
+        "teamId": "${APPLE_TEAM_ID}"
+      }
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "certificateFile": "${WIN_CSC_LINK}",
+      "certificatePassword": "${WIN_CSC_KEY_PASSWORD}",
+      "publisherName": "Web Testing IDE"
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Development",
+      "maintainer": "Web Testing IDE <contact@webtestingide.com>"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "bhaskarhadimanig",
+      "repo": "web-testing-ide"
     }
   }
 }
