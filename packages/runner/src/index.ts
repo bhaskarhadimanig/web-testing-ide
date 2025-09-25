@@ -24,7 +24,7 @@ export class TestRunner {
     const startedAt = Date.now()
 
     try {
-      const outputDir = join(process.cwd(), opts.outputDir!, runId)
+      const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
       await fs.mkdir(outputDir, { recursive: true })
 
       const result = await this.executePlaywrightTest(testFilePath, outputDir, opts)
@@ -39,10 +39,14 @@ export class TestRunner {
         errors: result.errors
       }
 
+      if (!result.success && result.errors.length > 0) {
+        await this.generateFailureJson(testRun, outputDir)
+      }
+
       return testRun
 
     } catch (error) {
-      return {
+      const testRun: TestRun = {
         id: runId,
         sessionId: 'unknown',
         status: 'failed',
@@ -55,6 +59,12 @@ export class TestRunner {
           stack: error instanceof Error ? error.stack : undefined
         }]
       }
+
+      const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
+      await fs.mkdir(outputDir, { recursive: true })
+      await this.generateFailureJson(testRun, outputDir)
+
+      return testRun
     }
   }
 
@@ -84,13 +94,21 @@ export class TestRunner {
       const args = [
         'test',
         testFilePath,
-        '--reporter=json',
-        options.headless ? '--headed' : '--headed'
+        '--reporter=json'
       ]
+      
+      if (!options.headless) {
+        args.push('--headed')
+      }
 
       const child = spawn('npx', ['playwright', ...args], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: process.cwd()
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || '0',
+          PLAYWRIGHT_TEST_OUTPUT_DIR: outputDir
+        }
       })
 
       let stdout = ''
@@ -109,17 +127,21 @@ export class TestRunner {
         const errors: TestError[] = []
 
         try {
-          const files = await fs.readdir(outputDir)
+          const files = await fs.readdir(outputDir, { withFileTypes: true })
           for (const file of files) {
-            const filePath = join(outputDir, file)
-            const stat = await fs.stat(filePath)
-            
-            if (stat.isFile()) {
+            if (file.isFile() && !file.name.endsWith('.json')) {
+              const filePath = join(outputDir, file.name)
               let type: TestArtifact['type'] = 'log'
               
-              if (file.endsWith('.png')) type = 'screenshot'
-              else if (file.endsWith('.zip')) type = 'trace'
-              else if (file.endsWith('.webm')) type = 'video'
+              if (file.name.endsWith('.png') || file.name.endsWith('.jpg') || file.name.endsWith('.jpeg')) {
+                type = 'screenshot'
+              } else if (file.name.endsWith('.zip') || file.name.endsWith('.trace')) {
+                type = 'trace'
+              } else if (file.name.endsWith('.webm') || file.name.endsWith('.mp4')) {
+                type = 'video'
+              } else if (file.name.endsWith('.log') || file.name.endsWith('.txt')) {
+                type = 'log'
+              }
 
               artifacts.push({
                 type,
@@ -128,6 +150,7 @@ export class TestRunner {
             }
           }
         } catch (error) {
+          console.error('Failed to collect artifacts:', error)
         }
 
         if (stderr) {
@@ -179,5 +202,22 @@ export class TestRunner {
     }
 
     return testFiles
+  }
+
+  private async generateFailureJson(testRun: TestRun, outputDir: string): Promise<void> {
+    try {
+      const failurePath = join(outputDir, 'failure.json')
+      const failureData = {
+        runId: testRun.id,
+        status: testRun.status,
+        startedAt: testRun.startedAt,
+        completedAt: testRun.completedAt,
+        errors: testRun.errors,
+        artifacts: testRun.artifacts
+      }
+      await fs.writeFile(failurePath, JSON.stringify(failureData, null, 2), 'utf-8')
+    } catch (error) {
+      console.error('Failed to generate failure.json:', error)
+    }
   }
 }

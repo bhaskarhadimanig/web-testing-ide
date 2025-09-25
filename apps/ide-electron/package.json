@@ -20,6 +20,7 @@
   "dependencies": {
     "@web-testing-ide/common": "workspace:*",
     "@web-testing-ide/recorder": "workspace:*",
+    "@web-testing-ide/runner": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@monaco-editor/react": "^4.6.0",
