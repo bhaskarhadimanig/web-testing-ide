@@ -102,7 +102,7 @@ ipcMain.handle('recorder:export', async (event, format: string) => {
 ipcMain.handle('runner:run-test', async (event, testPath: string, options: any) => {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const outputDir = `runs/${timestamp}`
+    const outputDir = join(process.cwd(), 'runs', timestamp)
     
     const result = await runner.runTest(testPath, {
       ...options,
@@ -127,7 +127,7 @@ ipcMain.handle('runner:get-report', async (event, runId: string) => {
 ipcMain.handle('runner:run-single-step', async (event, step: any, options: any) => {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const outputDir = `runs/step-${timestamp}`
+    const outputDir = join(process.cwd(), 'runs', `step-${timestamp}`)
     
     const result = await runner.runSingleStep(step, {
       ...options,
