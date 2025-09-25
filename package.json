@@ -21,16 +21,19 @@
     "demo:recording": "node scripts/create-demo-recording.js"
   },
   "devDependencies": {
+    "@commitlint/cli": "^18.0.0",
+    "@commitlint/config-conventional": "^18.0.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "prettier": "^3.0.0",
     "eslint": "^8.0.0",
     "husky": "^8.0.0",
-    "@commitlint/cli": "^18.0.0",
-    "@commitlint/config-conventional": "^18.0.0"
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.40.0"
   }
 }

@@ -4,11 +4,15 @@
   "description": "Code generation from JSON recordings",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "codegen": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist node_modules",
     "lint": "eslint 'src/**/*.js' || true",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "cli": "node dist/cli.js"
   },
   "dependencies": {
     "@web-testing-ide/common": "workspace:*"

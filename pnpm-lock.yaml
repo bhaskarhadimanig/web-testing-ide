@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@playwright/test':
+        specifier: ^1.40.0
+        version: 1.55.1
     devDependencies:
       '@commitlint/cli':
         specifier: ^18.0.0
