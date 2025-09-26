@@ -275,7 +275,6 @@ public class ${className} {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
         options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random());
         options.addArguments("--remote-debugging-port=0");
         driver = new ChromeDriver(options);

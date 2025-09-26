@@ -177,10 +177,25 @@ export class TestRunner {
           const classDir = path.dirname(testFilePath)
           
           try {
-            require('fs').accessSync('./selenium-deps')
-            require('fs').accessSync('./junit-deps')
+            let projectRoot = process.cwd()
+            while (projectRoot !== path.dirname(projectRoot)) {
+              const packageJsonPath = path.join(projectRoot, 'package.json')
+              if (require('fs').existsSync(packageJsonPath)) {
+                const packageJson = JSON.parse(require('fs').readFileSync(packageJsonPath, 'utf-8'))
+                if (packageJson.workspaces) {
+                  break
+                }
+              }
+              projectRoot = path.dirname(projectRoot)
+            }
+            
+            const seleniumDepsPath = path.join(projectRoot, 'selenium-deps')
+            const junitDepsPath = path.join(projectRoot, 'junit-deps')
+            require('fs').accessSync(seleniumDepsPath)
+            require('fs').accessSync(junitDepsPath)
             command = 'javac'
-            args = ['-cp', './selenium-deps/*:./junit-deps/*', testFilePath]
+            args = ['-cp', `${seleniumDepsPath}/*:${junitDepsPath}/*`, testFilePath]
+            console.log(`Using Selenium/JUnit dependencies from: ${seleniumDepsPath} and ${junitDepsPath}`)
           } catch (error) {
             console.log('Warning: Selenium/JUnit dependencies not found, attempting compilation without external deps')
             command = 'javac'
@@ -258,9 +273,23 @@ export class TestRunner {
           const className = path.basename(testFilePath, '.java')
           const classDir = path.dirname(testFilePath)
           
+          let projectRoot = process.cwd()
+          while (projectRoot !== path.dirname(projectRoot)) {
+            const packageJsonPath = path.join(projectRoot, 'package.json')
+            if (require('fs').existsSync(packageJsonPath)) {
+              const packageJson = JSON.parse(require('fs').readFileSync(packageJsonPath, 'utf-8'))
+              if (packageJson.workspaces) {
+                break
+              }
+            }
+            projectRoot = path.dirname(projectRoot)
+          }
+          
+          const seleniumDepsPath = path.join(projectRoot, 'selenium-deps')
+          const junitDepsPath = path.join(projectRoot, 'junit-deps')
           const javaChild = spawn('java', [
             '-Dwebdriver.chrome.driver=./chromedriver',
-            '-cp', './selenium-deps/*:./junit-deps/*:' + classDir,
+            '-cp', `${seleniumDepsPath}/*:${junitDepsPath}/*:${classDir}`,
             'org.junit.platform.console.ConsoleLauncher',
             '--class-path', classDir,
             '--select-class', className
