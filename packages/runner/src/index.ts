@@ -2,6 +2,7 @@ import { RecordingSession, TestRun, TestArtifact, TestError, RecorderStep } from
 import { spawn } from 'child_process'
 import { promises as fs } from 'fs'
 import { join } from 'path'
+import * as path from 'path'
 
 export interface RunnerOptions {
   headless?: boolean
@@ -27,7 +28,7 @@ export class TestRunner {
       const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
       await fs.mkdir(outputDir, { recursive: true })
 
-      const result = await this.executePlaywrightTest(testFilePath, outputDir, opts)
+      const result = await this.executeTest(testFilePath, outputDir, opts, 'playwright')
 
       const testRun: TestRun = {
         id: runId,
@@ -80,10 +81,14 @@ export class TestRunner {
       const outputDir = opts.outputDir || join(process.cwd(), 'runs', runId)
       await fs.mkdir(outputDir, { recursive: true })
 
-      const tempTestPath = join(outputDir, 'generated-test.spec.ts')
+      const framework = this.detectFramework(testCode)
+      const extension = framework === 'selenium' && testCode.includes('import org.openqa.selenium') ? '.java' : 
+                       framework === 'selenium' && testCode.includes('from selenium') ? '.py' :
+                       framework === 'cypress' ? '.cy.js' : '.spec.ts'
+      const tempTestPath = join(outputDir, `generated-test${extension}`)
       await fs.writeFile(tempTestPath, testCode, 'utf-8')
 
-      const result = await this.executePlaywrightTest(tempTestPath, outputDir, opts)
+      const result = await this.executeTest(tempTestPath, outputDir, opts, framework)
 
       const testRun: TestRun = {
         id: runId,
@@ -144,38 +149,68 @@ export class TestRunner {
     }
   }
 
-  private async executePlaywrightTest(
+  private async executeTest(
     testFilePath: string, 
     outputDir: string, 
-    options: RunnerOptions
+    options: RunnerOptions,
+    framework: 'playwright' | 'selenium' | 'cypress' = 'playwright'
   ): Promise<{ success: boolean; artifacts: TestArtifact[]; errors: TestError[] }> {
     return new Promise((resolve) => {
-      const args = [
-        'test',
-        testFilePath,
-        '--reporter=json'
-      ]
+      let command: string
+      let args: string[]
       
-      if (!options.headless) {
-        args.push('--headed')
-        args.push('--browser=chromium')
-        console.log(`Browser will run in headed mode for visible execution`) // (important-comment)
+      if (framework === 'selenium') {
+        if (testFilePath.endsWith('.java')) {
+          const className = path.basename(testFilePath, '.java')
+          const classDir = path.dirname(testFilePath)
+          
+          command = 'javac'
+          args = ['-cp', '.:/usr/share/java/selenium-server-standalone.jar:/usr/share/java/junit-platform-console-standalone.jar', testFilePath]
+          console.log(`Compiling Selenium Java test: ${command} ${args.join(' ')}`) // (important-comment)
+          
+        } else {
+          command = 'python'
+          args = [testFilePath]
+          console.log(`Executing Selenium Python test: ${command} ${args.join(' ')}`) // (important-comment)
+        }
+      } else if (framework === 'cypress') {
+        command = 'npx'
+        args = ['cypress', 'run', '--spec', testFilePath]
+        if (!options.headless) {
+          args.push('--headed')
+          console.log(`Browser will run in headed mode for visible execution`) // (important-comment)
+        }
+        console.log(`Executing Cypress test: ${command} ${args.join(' ')}`) // (important-comment)
       } else {
-        console.log(`Browser will run in headless mode`) // (important-comment)
+        command = 'npx'
+        args = [
+          'playwright',
+          'test',
+          testFilePath,
+          '--reporter=json'
+        ]
+        
+        if (!options.headless) {
+          args.push('--headed')
+          args.push('--browser=chromium')
+          console.log(`Browser will run in headed mode for visible execution`) // (important-comment)
+        } else {
+          console.log(`Browser will run in headless mode`) // (important-comment)
+        }
+        
+        args.push('--screenshot=on')
+        args.push('--trace=on')
+        console.log(`Executing Playwright test: ${command} ${args.join(' ')}`) // (important-comment)
       }
-      
-      args.push('--screenshot=on')
-      args.push('--trace=on')
-      
-      console.log(`Executing Playwright test with args: ${args.join(' ')}`) // (important-comment)
 
-      const child = spawn('npx', ['playwright', ...args], {
+      const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: process.cwd(),
         env: {
           ...process.env,
           PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || '0',
-          PLAYWRIGHT_TEST_OUTPUT_DIR: outputDir
+          PLAYWRIGHT_TEST_OUTPUT_DIR: outputDir,
+          DISPLAY: process.env.DISPLAY || ':0'
         }
       })
 
@@ -324,6 +359,17 @@ export class TestRunner {
     })
   }
 
+  private detectFramework(testCode: string): 'playwright' | 'selenium' | 'cypress' {
+    if (testCode.includes('@playwright/test') || testCode.includes('import { test, expect } from \'@playwright/test\'')) {
+      return 'playwright'
+    } else if (testCode.includes('org.openqa.selenium') || testCode.includes('from selenium import') || testCode.includes('WebDriver') || testCode.includes('ChromeDriver')) {
+      return 'selenium'
+    } else if (testCode.includes('cypress') || testCode.includes('cy.')) {
+      return 'cypress'
+    }
+    return 'playwright' // Default fallback
+  }
+
   private async findTestFiles(dir: string): Promise<string[]> {
     const testFiles: string[] = []
     
@@ -360,7 +406,7 @@ export class TestRunner {
       
       await fs.writeFile(tempTestPath, tempTestCode, 'utf-8')
       
-      const result = await this.executePlaywrightTest(tempTestPath, outputDir, opts)
+      const result = await this.executeTest(tempTestPath, outputDir, opts, 'playwright')
       
       const testRun: TestRun = {
         id: runId,
@@ -470,6 +516,75 @@ test('Single step execution', async ({ page }) => {
       await fs.writeFile(failurePath, JSON.stringify(failureData, null, 2), 'utf-8')
     } catch (error) {
       console.error('Failed to generate failure.json:', error)
+    }
+  }
+
+  private async collectArtifacts(outputDir: string, artifacts: Array<{ type: string; path: string }>): Promise<void> {
+    try {
+      const files = await fs.readdir(outputDir, { recursive: true })
+      
+      for (const file of files) {
+        const filePath = join(outputDir, file as string)
+        const stat = await fs.stat(filePath)
+        
+        if (stat.isFile()) {
+          const ext = path.extname(filePath).toLowerCase()
+          let type = 'unknown'
+          
+          if (['.png', '.jpg', '.jpeg'].includes(ext)) {
+            type = 'screenshot'
+          } else if (ext === '.json') {
+            type = 'report'
+          } else if (ext === '.zip') {
+            type = 'trace'
+          } else if (ext === '.webm' || ext === '.mp4') {
+            type = 'video'
+          }
+          
+          artifacts.push({ type, path: filePath })
+        }
+      }
+
+      const recordingsDir = join(process.cwd(), 'apps', 'ide-electron', 'recordings')
+      try {
+        const recordingFiles = await fs.readdir(recordingsDir, { recursive: true })
+        for (const file of recordingFiles) {
+          const filePath = join(recordingsDir, file as string)
+          const stat = await fs.stat(filePath)
+          
+          if (stat.isFile()) {
+            const ext = path.extname(filePath).toLowerCase()
+            if (['.png', '.jpg'].includes(ext)) {
+              artifacts.push({ type: 'screenshot', path: filePath })
+            }
+          }
+        }
+      } catch (error) {
+        console.log('No recordings directory found, skipping screenshot collection')
+      }
+
+      const testResultsDir = join(outputDir, 'test-results')
+      try {
+        const testResultFiles = await fs.readdir(testResultsDir, { recursive: true })
+        for (const file of testResultFiles) {
+          const filePath = join(testResultsDir, file as string)
+          const stat = await fs.stat(filePath)
+          
+          if (stat.isFile()) {
+            const ext = path.extname(filePath).toLowerCase()
+            if (['.png', '.jpg', '.jpeg'].includes(ext)) {
+              artifacts.push({ type: 'screenshot', path: filePath })
+            } else if (ext === '.zip') {
+              artifacts.push({ type: 'trace', path: filePath })
+            }
+          }
+        }
+      } catch (error) {
+        console.log('No test-results directory found, skipping additional artifact collection')
+      }
+      
+    } catch (error) {
+      console.error('Failed to collect artifacts:', error)
     }
   }
 
@@ -686,16 +801,21 @@ test('Single step execution', async ({ page }) => {
                 <div class="artifacts">
                     ${testRun.artifacts.map((artifact: any) => `
                         <div class="artifact">
-                            <h4>${artifact.type.toUpperCase()}</h4>
+                            <div class="artifact-title">${artifact.type.toUpperCase()}</div>
                             ${artifact.type === 'screenshot' ? `
                                 <img src="file://${artifact.path}" alt="Test Screenshot" />
                             ` : `
-                                <a href="file://${artifact.path}" target="_blank">📄 View ${artifact.type}</a>
+                                <div style="padding: 20px;">
+                                    <a href="file://${artifact.path}" target="_blank">📄 View ${artifact.type}</a>
+                                </div>
                             `}
-                            <p><small>📁 ${artifact.path}</small></p>
+                            <div style="padding: 10px; font-size: 0.9em; color: #666;">
+                                📁 ${artifact.path}
+                            </div>
                         </div>
                     `).join('')}
                 </div>
+                ${testRun.artifacts.length === 0 ? '<div class="no-data">No artifacts generated</div>' : ''}
             </div>
         </div>
     </div>

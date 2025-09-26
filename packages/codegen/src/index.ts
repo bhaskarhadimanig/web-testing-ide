@@ -44,7 +44,8 @@ export class CodeGenerator {
   generateSeleniumCode(session: RecordingSession, options: CodegenOptions): string {
     const imports = this.generateSeleniumImports(options.language)
     const testSetup = this.generateSeleniumTestSetup(session, options)
-    const testSteps = session.steps.map(step => this.generateSeleniumStep(step, options)).join('\n')
+    const consolidatedSteps = this.consolidateTypingSteps(session.steps)
+    const testSteps = consolidatedSteps.map(step => this.generateSeleniumStep(step, options)).join('\n')
     const testTeardown = this.generateSeleniumTestTeardown(options.language)
 
     return `${imports}\n\n${testSetup}\n${testSteps}\n${testTeardown}\n`
@@ -431,6 +432,14 @@ import time`
 
   private getSeleniumLocatorMethod(selector: string, selectors: SelectorCandidate[]): string {
     if (!selectors || selectors.length === 0) {
+      if (selector.includes(':has-text(')) {
+        const textMatch = selector.match(/:has-text\("([^"]+)"\)/)
+        if (textMatch) {
+          const text = textMatch[1]
+          const element = selector.split(':has-text(')[0] || '*'
+          return `By.xpath("//${element}[contains(text(), '${text}')]")`
+        }
+      }
       return `By.cssSelector("${selector}")`
     }
     
@@ -451,6 +460,14 @@ import time`
     }
     
     if (bestSelector.type === 'css') {
+      if (selector.includes(':has-text(')) {
+        const textMatch = selector.match(/:has-text\("([^"]+)"\)/)
+        if (textMatch) {
+          const text = textMatch[1]
+          const element = selector.split(':has-text(')[0] || '*'
+          return `By.xpath("//${element}[contains(text(), '${text}')]")`
+        }
+      }
       return `By.cssSelector("${selector}")`
     }
     
@@ -470,6 +487,44 @@ import time`
     }
     
     return `By.cssSelector("${selector}")`
+  }
+
+  private consolidateTypingSteps(steps: RecorderStep[]): RecorderStep[] {
+    const consolidated: RecorderStep[] = []
+    let i = 0
+    
+    while (i < steps.length) {
+      const currentStep = steps[i]
+      
+      if (currentStep.type === 'type' && currentStep.selectors[0]) {
+        const sameElementSteps = [currentStep]
+        let j = i + 1
+        
+        while (j < steps.length && 
+               steps[j].type === 'type' && 
+               steps[j].selectors[0]?.selector === currentStep.selectors[0].selector) {
+          sameElementSteps.push(steps[j])
+          j++
+        }
+        
+        if (sameElementSteps.length > 1) {
+          const finalStep = sameElementSteps[sameElementSteps.length - 1]
+          consolidated.push({
+            ...finalStep,
+            value: finalStep.value // Use the final typed value
+          })
+          i = j // Skip all the consolidated steps
+        } else {
+          consolidated.push(currentStep)
+          i++
+        }
+      } else {
+        consolidated.push(currentStep)
+        i++
+      }
+    }
+    
+    return consolidated
   }
 }
 
