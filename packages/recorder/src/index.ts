@@ -108,7 +108,13 @@ export class RecorderEngine {
 
     this.page.on('framenavigated', async (frame) => {
       if (frame === this.page!.mainFrame()) {
-        await this.captureStep('navigate', frame.url(), [])
+        const defaultSelectors = [{
+          selector: 'html',
+          type: 'css' as const,
+          score: 10,
+          isUnique: true
+        }]
+        await this.captureStep('navigate', frame.url(), defaultSelectors)
       }
     })
 
@@ -148,13 +154,13 @@ export class RecorderEngine {
           console.log(`Attempting element screenshot: ${fullElementScreenshotPath}`) // (important-comment)
           await this.page.screenshot({
             path: fullElementScreenshotPath,
+            type: 'png',
             clip: {
               x: Math.max(0, elementData.boundingBox.x - 10),
               y: Math.max(0, elementData.boundingBox.y - 10),
               width: Math.min(this.recording.viewport.width, elementData.boundingBox.width + 20),
               height: Math.min(this.recording.viewport.height, elementData.boundingBox.height + 20)
-            },
-            type: 'png'
+            }
           })
           elementScreenshot = elementScreenshotPath
           console.log(`Element screenshot captured: ${fullElementScreenshotPath}`) // (important-comment)
@@ -601,29 +607,31 @@ export class RecorderEngine {
     
     console.log(`Generating selectors from element data for event: ${event.type}, elementData:`, event.elementData) // (important-comment)
     
+    if (!event.elementData) {
+      console.log(`No element data available for event: ${event.type}`) // (important-comment)
+      return []
+    }
+    
     try {
-      const selectors = await this.page.evaluate((eventData) => {
-        const el = eventData.element
-        if (!el) return []
-        
+      const selectors = await this.page.evaluate((elementData) => {
         const selectors: any[] = []
         
-        if (el.id) {
+        if (elementData.id) {
           selectors.push({
-            selector: `#${el.id}`,
+            selector: `#${elementData.id}`,
             type: 'id',
             score: 100,
-            isUnique: document.querySelectorAll(`#${el.id}`).length === 1
+            isUnique: document.querySelectorAll(`#${elementData.id}`).length === 1
           })
           selectors.push({
-            selector: `//*[@id="${el.id}"]`,
+            selector: `//*[@id="${elementData.id}"]`,
             type: 'xpath',
             score: 95,
             isUnique: true
           })
         }
         
-        const testId = el.getAttribute('data-testid')
+        const testId = elementData.attributes && elementData.attributes['data-testid']
         if (testId) {
           selectors.push({
             selector: `[data-testid="${testId}"]`,
@@ -639,7 +647,7 @@ export class RecorderEngine {
           })
         }
         
-        const nameAttr = el.getAttribute('name')
+        const nameAttr = elementData.attributes && elementData.attributes.name
         if (nameAttr) {
           selectors.push({
             selector: `[name="${nameAttr}"]`,
@@ -655,7 +663,7 @@ export class RecorderEngine {
           })
         }
         
-        const ariaLabel = el.getAttribute('aria-label')
+        const ariaLabel = elementData.attributes && elementData.attributes['aria-label']
         if (ariaLabel) {
           selectors.push({
             selector: `[aria-label="${ariaLabel}"]`,
@@ -671,26 +679,26 @@ export class RecorderEngine {
           })
         }
         
-        if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'SPAN') {
-          const text = el.textContent?.trim()
+        if (elementData.tagName === 'BUTTON' || elementData.tagName === 'A' || elementData.tagName === 'SPAN') {
+          const text = elementData.textContent?.trim()
           if (text && text.length < 50) {
             selectors.push({
-              selector: `${el.tagName.toLowerCase()}:has-text("${text}")`,
+              selector: `${elementData.tagName.toLowerCase()}:has-text("${text}")`,
               type: 'text',
               score: 75,
-              isUnique: Array.from(document.querySelectorAll(el.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+              isUnique: true
             })
             selectors.push({
-              selector: `//${el.tagName.toLowerCase()}[contains(text(),"${text}")]`,
+              selector: `//${elementData.tagName.toLowerCase()}[contains(text(),"${text}")]`,
               type: 'xpath',
               score: 73,
-              isUnique: Array.from(document.querySelectorAll(el.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+              isUnique: true
             })
           }
         }
         
-        if (el.className && typeof el.className === 'string') {
-          const classes = el.className.split(' ').filter((c: string) => c.trim())
+        if (elementData.className && typeof elementData.className === 'string') {
+          const classes = elementData.className.split(' ').filter((c: string) => c.trim())
           if (classes.length > 0) {
             const classSelector = '.' + classes.join('.')
             const isUnique = document.querySelectorAll(classSelector).length === 1
@@ -709,46 +717,25 @@ export class RecorderEngine {
           }
         }
         
-        const generateAdvancedXPath = (element: Element): string => {
-          if (element.id) {
-            return `//*[@id="${element.id}"]`
+        const generateAdvancedXPath = (elementData: any): string => {
+          if (elementData.id) {
+            return `//*[@id="${elementData.id}"]`
           }
           
-          const parts: string[] = []
-          let current: Element | null = element
+          const tagName = elementData.tagName?.toLowerCase() || 'div'
+          let selector = tagName
           
-          while (current && current.nodeType === 1) {
-            let selector = current.tagName.toLowerCase()
-            
-            const siblings = Array.from(current.parentNode?.children || [])
-              .filter(sibling => sibling.tagName === current!.tagName)
-            
-            if (siblings.length > 1) {
-              const index = siblings.indexOf(current) + 1
-              selector += `[${index}]`
+          if (elementData.className) {
+            const firstClass = elementData.className.split(' ')[0]
+            if (firstClass) {
+              selector += `[@class="${firstClass}"]`
             }
-            
-            if (current.id) {
-              selector = `${current.tagName.toLowerCase()}[@id="${current.id}"]`
-              parts.unshift(selector)
-              break
-            } else if (current.className) {
-              const firstClass = current.className.split(' ')[0]
-              if (firstClass) {
-                selector += `[@class="${firstClass}"]`
-              }
-            }
-            
-            parts.unshift(selector)
-            current = current.parentElement
-            
-            if (parts.length > 6) break
           }
           
-          return '//' + parts.join('/')
+          return '//' + selector
         }
         
-        const advancedXPath = generateAdvancedXPath(el)
+        const advancedXPath = generateAdvancedXPath(elementData)
         selectors.push({
           selector: advancedXPath,
           type: 'xpath',
@@ -757,14 +744,14 @@ export class RecorderEngine {
         })
         
         selectors.push({
-          selector: el.tagName.toLowerCase(),
+          selector: elementData.tagName?.toLowerCase() || 'div',
           type: 'css',
           score: 30,
           isUnique: false
         })
         
         return selectors.sort((a, b) => b.score - a.score)
-      }, event)
+      }, event.elementData)
       
       console.log(`Generated ${selectors.length} selectors for ${event.type}`) // (important-comment)
       return selectors
