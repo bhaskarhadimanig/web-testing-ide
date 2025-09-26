@@ -23,6 +23,46 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   }, [framework, language])
 
   const configureLanguageFeatures = (fw: string, lang: string) => {
+    if (typeof window !== 'undefined' && (window as any).monaco) {
+      const monaco = (window as any).monaco
+      
+      if (fw === 'playwright' && lang === 'typescript') {
+        monaco.languages.registerCompletionItemProvider('typescript', {
+          provideCompletionItems: () => ({
+            suggestions: [
+              {
+                label: 'page.goto',
+                kind: monaco.languages.CompletionItemKind.Method,
+                insertText: 'page.goto(\'${1:url}\')',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Navigate to a URL'
+              },
+              {
+                label: 'page.click',
+                kind: monaco.languages.CompletionItemKind.Method,
+                insertText: 'page.click(\'${1:selector}\')',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Click an element'
+              },
+              {
+                label: 'page.fill',
+                kind: monaco.languages.CompletionItemKind.Method,
+                insertText: 'page.fill(\'${1:selector}\', \'${2:value}\')',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Fill an input field'
+              },
+              {
+                label: 'expect.toBeVisible',
+                kind: monaco.languages.CompletionItemKind.Method,
+                insertText: 'expect(page.locator(\'${1:selector}\')).toBeVisible()',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Assert element is visible'
+              }
+            ]
+          })
+        })
+      }
+    }
   }
 
   return (

@@ -211,6 +211,31 @@ export class TestRunner {
               })
             }
           }
+
+          try {
+            const recordingsDir = join(process.cwd(), 'recordings')
+            const recordingDirs = await fs.readdir(recordingsDir, { withFileTypes: true })
+            
+            for (const recordingDir of recordingDirs) {
+              if (recordingDir.isDirectory()) {
+                const screenshotsDir = join(recordingsDir, recordingDir.name, 'screenshots')
+                try {
+                  const screenshotFiles = await fs.readdir(screenshotsDir, { withFileTypes: true })
+                  for (const screenshotFile of screenshotFiles) {
+                    if (screenshotFile.isFile() && screenshotFile.name.endsWith('.png')) {
+                      const screenshotPath = join(screenshotsDir, screenshotFile.name)
+                      artifacts.push({
+                        type: 'screenshot',
+                        path: screenshotPath
+                      })
+                    }
+                  }
+                } catch (screenshotError) {
+                }
+              }
+            }
+          } catch (recordingError) {
+          }
         } catch (error) {
           console.error('Failed to collect artifacts:', error)
         }

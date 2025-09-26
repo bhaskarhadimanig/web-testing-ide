@@ -132,13 +132,14 @@ export class RecorderEngine {
     console.log(`Capturing step ${stepId}: ${type} with ${selectors.length} selectors, value:`, value) // (important-comment)
     
     try {
-      await fs.mkdir(join(process.cwd(), 'recordings', this.recording.id, 'screenshots'), { recursive: true })
-      console.log(`Screenshots directory ensured: ${join(process.cwd(), 'recordings', this.recording.id, 'screenshots')}`) // (important-comment)
+      const screenshotDir = join(process.cwd(), 'recordings', this.recording.id, 'screenshots')
+      await fs.mkdir(screenshotDir, { recursive: true })
+      console.log(`Screenshots directory ensured: ${screenshotDir}`) // (important-comment)
       
       console.log(`Attempting to capture screenshot: ${fullScreenshotPath}`) // (important-comment)
       await this.page.screenshot({ 
         path: fullScreenshotPath,
-        fullPage: false,
+        fullPage: true,
         type: 'png'
       })
       
@@ -562,6 +563,12 @@ export class RecorderEngine {
               value = event.value.key
             } else if ('selectedText' in event.value) {
               value = event.value
+            } else if ('formData' in event.value) {
+              value = event.value.formData
+            } else if ('clickCoordinates' in event.value) {
+              value = undefined // Click events don't need a value
+            } else if ('inputType' in event.value) {
+              value = event.value.value || undefined
             } else {
               value = undefined
             }
@@ -575,6 +582,10 @@ export class RecorderEngine {
                   value = event.value.value
                 } else if ('key' in event.value) {
                   value = event.value.key
+                } else if ('selectedText' in event.value) {
+                  value = event.value
+                } else if ('formData' in event.value) {
+                  value = event.value.formData
                 } else {
                   value = event.value
                 }
