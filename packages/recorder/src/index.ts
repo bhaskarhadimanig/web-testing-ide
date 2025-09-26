@@ -116,44 +116,119 @@ export class RecorderEngine {
     this.startEventPolling()
   }
 
-  private async captureStep(type: RecorderStep['type'], url: string, selectors: SelectorCandidate[], value?: any): Promise<void> {
+  private async captureStep(type: RecorderStep['type'], url: string, selectors: SelectorCandidate[], value?: any, elementData?: any): Promise<void> {
     if (!this.isRecording || !this.page || !this.recording) return
 
     const stepId = `step-${String(++this.stepCounter).padStart(3, '0')}`
     const screenshotPath = `screenshots/${stepId}.png`
+    const fullScreenshotPath = join(process.cwd(), 'recordings', this.recording.id, screenshotPath)
     
-    await this.page.screenshot({ 
-      path: join(process.cwd(), 'recordings', this.recording.id, screenshotPath),
-      fullPage: false 
-    })
+    try {
+      await this.page.screenshot({ 
+        path: fullScreenshotPath,
+        fullPage: false,
+        quality: 90,
+        type: 'png',
+        animations: 'disabled' // Disable animations for consistent screenshots
+      })
 
-    const step: RecorderStep = {
-      id: stepId,
-      type,
-      timestamp: Date.now(),
-      url,
-      viewport: this.recording.viewport,
-      selectors,
-      value,
-      screenshot: screenshotPath,
-      metadata: {
-        tagName: 'html'
+      let elementScreenshot: string | undefined
+      if (elementData?.boundingBox && elementData.boundingBox.width > 0 && elementData.boundingBox.height > 0) {
+        const elementScreenshotPath = `screenshots/${stepId}-element.png`
+        const fullElementScreenshotPath = join(process.cwd(), 'recordings', this.recording.id, elementScreenshotPath)
+        
+        try {
+          await this.page.screenshot({
+            path: fullElementScreenshotPath,
+            clip: {
+              x: Math.max(0, elementData.boundingBox.x - 10),
+              y: Math.max(0, elementData.boundingBox.y - 10),
+              width: Math.min(this.recording.viewport.width, elementData.boundingBox.width + 20),
+              height: Math.min(this.recording.viewport.height, elementData.boundingBox.height + 20)
+            },
+            quality: 95,
+            type: 'png'
+          })
+          elementScreenshot = elementScreenshotPath
+        } catch (clipError) {
+          console.warn('Failed to capture element screenshot:', clipError)
+        }
       }
-    }
 
-    this.steps.push(step)
+      const step: RecorderStep = {
+        id: stepId,
+        type,
+        timestamp: Date.now(),
+        url,
+        viewport: this.recording.viewport,
+        selectors,
+        value,
+        screenshot: screenshotPath,
+        metadata: {
+          tagName: elementData?.tagName || 'html',
+          elementAttributes: elementData?.attributes || {},
+          boundingBox: elementData?.boundingBox,
+          innerText: elementData?.textContent,
+          elementScreenshot
+        }
+      }
+
+      this.steps.push(step)
+      
+      console.log(`Captured step ${stepId}: ${type} with ${selectors.length} selectors`)
+      
+    } catch (error) {
+      console.error(`Failed to capture screenshot for step ${stepId}:`, error)
+      
+      const step: RecorderStep = {
+        id: stepId,
+        type,
+        timestamp: Date.now(),
+        url,
+        viewport: this.recording.viewport,
+        selectors,
+        value,
+        screenshot: undefined,
+        metadata: {
+          tagName: elementData?.tagName || 'html',
+          elementAttributes: elementData?.attributes || {},
+          boundingBox: elementData?.boundingBox,
+          innerText: elementData?.textContent,
+          screenshotError: error instanceof Error ? error.message : String(error)
+        }
+      }
+
+      this.steps.push(step)
+    }
   }
 
   private async setupDOMEventListeners(): Promise<void> {
     if (!this.page) return
 
     await this.page.evaluate(() => {
-      const captureEvent = (type: string, element: Element, value?: any) => {
+      const captureEvent = (type: string, element: Element, value?: any, additionalData?: any) => {
         (window as any).__recordingEvents = (window as any).__recordingEvents || []
-        ;(window as any).__recordingEvents.push({ type, element, value, timestamp: Date.now() })
+        ;(window as any).__recordingEvents.push({ 
+          type, 
+          element, 
+          value, 
+          timestamp: Date.now(),
+          elementData: {
+            tagName: element.tagName,
+            id: element.id,
+            className: element.className,
+            textContent: element.textContent?.trim(),
+            attributes: Array.from(element.attributes || []).reduce((acc: any, attr) => {
+              acc[attr.name] = attr.value
+              return acc
+            }, {}),
+            boundingBox: element.getBoundingClientRect(),
+            ...additionalData
+          }
+        })
       }
 
-      const generateSelectorsForCurrentElement = (element: Element) => {
+      const generateAdvancedSelectors = (element: Element) => {
         const selectors: any[] = []
         
         if (element.id) {
@@ -163,14 +238,27 @@ export class RecorderEngine {
             score: 100,
             isUnique: document.querySelectorAll(`#${element.id}`).length === 1
           })
+          selectors.push({
+            selector: `//*[@id="${element.id}"]`,
+            type: 'xpath',
+            score: 95,
+            isUnique: true
+          })
         }
         
-        if (element.getAttribute && element.getAttribute('data-testid')) {
+        const testId = element.getAttribute('data-testid')
+        if (testId) {
           selectors.push({
-            selector: `[data-testid="${element.getAttribute('data-testid')}"]`,
+            selector: `[data-testid="${testId}"]`,
             type: 'data-testid',
             score: 90,
-            isUnique: document.querySelectorAll(`[data-testid="${element.getAttribute('data-testid')}"]`).length === 1
+            isUnique: document.querySelectorAll(`[data-testid="${testId}"]`).length === 1
+          })
+          selectors.push({
+            selector: `//*[@data-testid="${testId}"]`,
+            type: 'xpath',
+            score: 88,
+            isUnique: true
           })
         }
         
@@ -182,19 +270,12 @@ export class RecorderEngine {
             score: 85,
             isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
           })
-        }
-        
-        if (element.className && typeof element.className === 'string') {
-          const classes = element.className.split(' ').filter((c: string) => c.trim())
-          if (classes.length > 0) {
-            const classSelector = '.' + classes.join('.')
-            selectors.push({
-              selector: classSelector,
-              type: 'css',
-              score: 70,
-              isUnique: document.querySelectorAll(classSelector).length === 1
-            })
-          }
+          selectors.push({
+            selector: `//*[@name="${nameAttr}"]`,
+            type: 'xpath',
+            score: 83,
+            isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
+          })
         }
         
         const ariaLabel = element.getAttribute('aria-label')
@@ -202,22 +283,102 @@ export class RecorderEngine {
           selectors.push({
             selector: `[aria-label="${ariaLabel}"]`,
             type: 'aria-label',
-            score: 85,
+            score: 82,
+            isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
+          })
+          selectors.push({
+            selector: `//*[@aria-label="${ariaLabel}"]`,
+            type: 'xpath',
+            score: 80,
             isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
           })
         }
         
-        if (element.tagName === 'BUTTON' || element.tagName === 'A') {
+        if (element.tagName === 'BUTTON' || element.tagName === 'A' || element.tagName === 'SPAN') {
           const text = element.textContent?.trim()
-          if (text) {
+          if (text && text.length < 50) {
             selectors.push({
               selector: `${element.tagName.toLowerCase()}:has-text("${text}")`,
               type: 'text',
-              score: 80,
+              score: 75,
+              isUnique: Array.from(document.querySelectorAll(element.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+            })
+            selectors.push({
+              selector: `//${element.tagName.toLowerCase()}[contains(text(),"${text}")]`,
+              type: 'xpath',
+              score: 73,
               isUnique: Array.from(document.querySelectorAll(element.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
             })
           }
         }
+        
+        if (element.className && typeof element.className === 'string') {
+          const classes = element.className.split(' ').filter((c: string) => c.trim())
+          if (classes.length > 0) {
+            const classSelector = '.' + classes.join('.')
+            const isUnique = document.querySelectorAll(classSelector).length === 1
+            selectors.push({
+              selector: classSelector,
+              type: 'css',
+              score: isUnique ? 70 : 50,
+              isUnique
+            })
+            const classXPath = `//*[contains(@class,"${classes[0]}")]`
+            selectors.push({
+              selector: classXPath,
+              type: 'xpath',
+              score: isUnique ? 68 : 48,
+              isUnique
+            })
+          }
+        }
+        
+        const generateAdvancedXPath = (el: Element): string => {
+          if (el.id) {
+            return `//*[@id="${el.id}"]`
+          }
+          
+          const parts: string[] = []
+          let current: Element | null = el
+          
+          while (current && current.nodeType === 1) {
+            let selector = current.tagName.toLowerCase()
+            
+            const siblings = Array.from(current.parentNode?.children || [])
+              .filter(sibling => sibling.tagName === current!.tagName)
+            
+            if (siblings.length > 1) {
+              const index = siblings.indexOf(current) + 1
+              selector += `[${index}]`
+            }
+            
+            if (current.id) {
+              selector = `${current.tagName.toLowerCase()}[@id="${current.id}"]`
+              parts.unshift(selector)
+              break
+            } else if (current.className) {
+              const firstClass = current.className.split(' ')[0]
+              if (firstClass) {
+                selector += `[@class="${firstClass}"]`
+              }
+            }
+            
+            parts.unshift(selector)
+            current = current.parentElement
+            
+            if (parts.length > 6) break
+          }
+          
+          return '//' + parts.join('/')
+        }
+        
+        const advancedXPath = generateAdvancedXPath(element)
+        selectors.push({
+          selector: advancedXPath,
+          type: 'xpath',
+          score: 60,
+          isUnique: false
+        })
         
         selectors.push({
           selector: element.tagName.toLowerCase(),
@@ -230,21 +391,34 @@ export class RecorderEngine {
       }
 
       document.addEventListener('click', (e) => {
-        const selectors = generateSelectorsForCurrentElement(e.target as Element)
-        captureEvent('click', e.target as Element, { selectors })
+        const selectors = generateAdvancedSelectors(e.target as Element)
+        captureEvent('click', e.target as Element, { selectors }, {
+          clickCoordinates: { x: e.clientX, y: e.clientY },
+          modifiers: {
+            ctrlKey: e.ctrlKey,
+            shiftKey: e.shiftKey,
+            altKey: e.altKey,
+            metaKey: e.metaKey
+          }
+        })
       }, true)
 
       document.addEventListener('input', (e) => {
         const target = e.target as HTMLInputElement
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-          const selectors = generateSelectorsForCurrentElement(target)
-          captureEvent('type', target, { value: target.value, selectors })
+          const selectors = generateAdvancedSelectors(target)
+          captureEvent('type', target, { 
+            value: target.value, 
+            selectors,
+            inputType: target.type,
+            placeholder: target.placeholder
+          })
         }
       }, true)
 
       document.addEventListener('change', (e) => {
         const target = e.target as HTMLInputElement | HTMLSelectElement
-        const selectors = generateSelectorsForCurrentElement(target)
+        const selectors = generateAdvancedSelectors(target)
         let value: any = target.value
         let eventType = 'select'
         
@@ -256,34 +430,83 @@ export class RecorderEngine {
           eventType = 'radio'
         } else if (target.tagName === 'SELECT') {
           eventType = 'select'
+          const selectElement = target as HTMLSelectElement
+          value = {
+            value: selectElement.value,
+            selectedIndex: selectElement.selectedIndex,
+            selectedText: selectElement.options[selectElement.selectedIndex]?.text
+          }
         }
         
         captureEvent(eventType, target, { value, selectors })
       }, true)
 
       document.addEventListener('dblclick', (e) => {
-        const selectors = generateSelectorsForCurrentElement(e.target as Element)
+        const selectors = generateAdvancedSelectors(e.target as Element)
         captureEvent('doubleClick', e.target as Element, { selectors })
       }, true)
 
       document.addEventListener('focus', (e) => {
         const target = e.target as Element
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
-          const selectors = generateSelectorsForCurrentElement(target)
+          const selectors = generateAdvancedSelectors(target)
           captureEvent('focus', target, { selectors })
         }
       }, true)
 
       document.addEventListener('submit', (e) => {
-        const selectors = generateSelectorsForCurrentElement(e.target as Element)
-        captureEvent('submit', e.target as Element, { selectors })
+        const selectors = generateAdvancedSelectors(e.target as Element)
+        const formData = new FormData(e.target as HTMLFormElement)
+        const formValues: any = {}
+        const inputs = (e.target as HTMLFormElement).querySelectorAll('input, select, textarea')
+        inputs.forEach((input) => {
+          if (input instanceof HTMLInputElement) {
+            if (input.type === 'checkbox' || input.type === 'radio') {
+              if (input.checked && input.name) {
+                formValues[input.name] = input.value
+              }
+            } else if (input.name) {
+              formValues[input.name] = input.value
+            }
+          } else if ((input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement) && input.name) {
+            formValues[input.name] = input.value
+          }
+        })
+        captureEvent('submit', e.target as Element, { selectors, formData: formValues })
       }, true)
 
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && (e.target as Element).tagName === 'INPUT') {
-          const selectors = generateSelectorsForCurrentElement(e.target as Element)
-          captureEvent('keypress', e.target as Element, { key: e.key, selectors })
+        const target = e.target as Element
+        if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'Escape') {
+          const selectors = generateAdvancedSelectors(target)
+          captureEvent('keypress', target, { 
+            key: e.key, 
+            selectors,
+            keyCode: e.keyCode,
+            modifiers: {
+              ctrlKey: e.ctrlKey,
+              shiftKey: e.shiftKey,
+              altKey: e.altKey,
+              metaKey: e.metaKey
+            }
+          })
         }
+      }, true)
+
+      let hoverTimeout: any
+      document.addEventListener('mouseover', (e) => {
+        clearTimeout(hoverTimeout)
+        hoverTimeout = setTimeout(() => {
+          const target = e.target as Element
+          if (target.tagName === 'BUTTON' || target.tagName === 'A' || target.getAttribute('role') === 'button') {
+            const selectors = generateAdvancedSelectors(target)
+            captureEvent('hover', target, { selectors })
+          }
+        }, 500) // Only capture hover after 500ms
+      }, true)
+
+      document.addEventListener('mouseout', () => {
+        clearTimeout(hoverTimeout)
       }, true)
     })
   }
@@ -302,7 +525,7 @@ export class RecorderEngine {
         for (const event of events) {
           const selectors = await this.generateSelectorsFromEvent(event)
           const value = event.value && typeof event.value === 'object' ? event.value.value : event.value
-          await this.captureStep(event.type, this.page!.url(), selectors, value)
+          await this.captureStep(event.type, this.page!.url(), selectors, value, event.elementData)
         }
       } catch (error) {
         console.error('Error polling events:', error)
@@ -323,84 +546,176 @@ export class RecorderEngine {
       return event.value.selectors
     }
     
-    return await this.page.evaluate((eventData) => {
-      const el = eventData.element
-      if (!el) return []
-      
-      const selectors: SelectorCandidate[] = []
-      
-      if (el.id) {
-        selectors.push({
-          selector: `#${el.id}`,
-          type: 'id',
-          score: 100,
-          isUnique: document.querySelectorAll(`#${el.id}`).length === 1
-        })
-      }
-      
-      if (el.getAttribute && el.getAttribute('data-testid')) {
-        selectors.push({
-          selector: `[data-testid="${el.getAttribute('data-testid')}"]`,
-          type: 'data-testid',
-          score: 90,
-          isUnique: document.querySelectorAll(`[data-testid="${el.getAttribute('data-testid')}"]`).length === 1
-        })
-      }
-      
-      const nameAttr = el.getAttribute('name')
-      if (nameAttr) {
-        selectors.push({
-          selector: `[name="${nameAttr}"]`,
-          type: 'css',
-          score: 85,
-          isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
-        })
-      }
-      
-      if (el.className && typeof el.className === 'string') {
-        const classes = el.className.split(' ').filter((c: string) => c.trim())
-        if (classes.length > 0) {
-          const classSelector = '.' + classes.join('.')
+    try {
+      const selectors = await this.page.evaluate((eventData) => {
+        const el = eventData.element
+        if (!el) return []
+        
+        const selectors: any[] = []
+        
+        if (el.id) {
           selectors.push({
-            selector: classSelector,
+            selector: `#${el.id}`,
+            type: 'id',
+            score: 100,
+            isUnique: document.querySelectorAll(`#${el.id}`).length === 1
+          })
+          selectors.push({
+            selector: `//*[@id="${el.id}"]`,
+            type: 'xpath',
+            score: 95,
+            isUnique: true
+          })
+        }
+        
+        const testId = el.getAttribute('data-testid')
+        if (testId) {
+          selectors.push({
+            selector: `[data-testid="${testId}"]`,
+            type: 'data-testid',
+            score: 90,
+            isUnique: document.querySelectorAll(`[data-testid="${testId}"]`).length === 1
+          })
+          selectors.push({
+            selector: `//*[@data-testid="${testId}"]`,
+            type: 'xpath',
+            score: 88,
+            isUnique: true
+          })
+        }
+        
+        const nameAttr = el.getAttribute('name')
+        if (nameAttr) {
+          selectors.push({
+            selector: `[name="${nameAttr}"]`,
             type: 'css',
-            score: 70,
-            isUnique: document.querySelectorAll(classSelector).length === 1
+            score: 85,
+            isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
           })
-        }
-      }
-      
-      const ariaLabel = el.getAttribute('aria-label')
-      if (ariaLabel) {
-        selectors.push({
-          selector: `[aria-label="${ariaLabel}"]`,
-          type: 'aria-label',
-          score: 85,
-          isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
-        })
-      }
-      
-      if (el.tagName === 'BUTTON' || el.tagName === 'A') {
-        const text = el.textContent?.trim()
-        if (text) {
           selectors.push({
-            selector: `${el.tagName.toLowerCase()}:has-text("${text}")`,
-            type: 'text',
-            score: 80,
-            isUnique: Array.from(document.querySelectorAll(el.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+            selector: `//*[@name="${nameAttr}"]`,
+            type: 'xpath',
+            score: 83,
+            isUnique: document.querySelectorAll(`[name="${nameAttr}"]`).length === 1
           })
         }
-      }
+        
+        const ariaLabel = el.getAttribute('aria-label')
+        if (ariaLabel) {
+          selectors.push({
+            selector: `[aria-label="${ariaLabel}"]`,
+            type: 'aria-label',
+            score: 82,
+            isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
+          })
+          selectors.push({
+            selector: `//*[@aria-label="${ariaLabel}"]`,
+            type: 'xpath',
+            score: 80,
+            isUnique: document.querySelectorAll(`[aria-label="${ariaLabel}"]`).length === 1
+          })
+        }
+        
+        if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'SPAN') {
+          const text = el.textContent?.trim()
+          if (text && text.length < 50) {
+            selectors.push({
+              selector: `${el.tagName.toLowerCase()}:has-text("${text}")`,
+              type: 'text',
+              score: 75,
+              isUnique: Array.from(document.querySelectorAll(el.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+            })
+            selectors.push({
+              selector: `//${el.tagName.toLowerCase()}[contains(text(),"${text}")]`,
+              type: 'xpath',
+              score: 73,
+              isUnique: Array.from(document.querySelectorAll(el.tagName.toLowerCase())).filter((e: any) => e.textContent?.trim() === text).length === 1
+            })
+          }
+        }
+        
+        if (el.className && typeof el.className === 'string') {
+          const classes = el.className.split(' ').filter((c: string) => c.trim())
+          if (classes.length > 0) {
+            const classSelector = '.' + classes.join('.')
+            const isUnique = document.querySelectorAll(classSelector).length === 1
+            selectors.push({
+              selector: classSelector,
+              type: 'css',
+              score: isUnique ? 70 : 50,
+              isUnique
+            })
+            selectors.push({
+              selector: `//*[contains(@class,"${classes[0]}")]`,
+              type: 'xpath',
+              score: isUnique ? 68 : 48,
+              isUnique
+            })
+          }
+        }
+        
+        const generateAdvancedXPath = (element: Element): string => {
+          if (element.id) {
+            return `//*[@id="${element.id}"]`
+          }
+          
+          const parts: string[] = []
+          let current: Element | null = element
+          
+          while (current && current.nodeType === 1) {
+            let selector = current.tagName.toLowerCase()
+            
+            const siblings = Array.from(current.parentNode?.children || [])
+              .filter(sibling => sibling.tagName === current!.tagName)
+            
+            if (siblings.length > 1) {
+              const index = siblings.indexOf(current) + 1
+              selector += `[${index}]`
+            }
+            
+            if (current.id) {
+              selector = `${current.tagName.toLowerCase()}[@id="${current.id}"]`
+              parts.unshift(selector)
+              break
+            } else if (current.className) {
+              const firstClass = current.className.split(' ')[0]
+              if (firstClass) {
+                selector += `[@class="${firstClass}"]`
+              }
+            }
+            
+            parts.unshift(selector)
+            current = current.parentElement
+            
+            if (parts.length > 6) break
+          }
+          
+          return '//' + parts.join('/')
+        }
+        
+        const advancedXPath = generateAdvancedXPath(el)
+        selectors.push({
+          selector: advancedXPath,
+          type: 'xpath',
+          score: 60,
+          isUnique: false
+        })
+        
+        selectors.push({
+          selector: el.tagName.toLowerCase(),
+          type: 'css',
+          score: 30,
+          isUnique: false
+        })
+        
+        return selectors.sort((a, b) => b.score - a.score)
+      }, event)
       
-      selectors.push({
-        selector: el.tagName.toLowerCase(),
-        type: 'css',
-        score: 30,
-        isUnique: false
-      })
-      
-      return selectors.sort((a, b) => b.score - a.score)
-    }, event)
+      return selectors
+    } catch (error) {
+      console.error('Error generating selectors:', error)
+      return []
+    }
   }
 
   private async generateSelectors(): Promise<SelectorCandidate[]> {

@@ -1,4 +1,4 @@
-import { RecordingSession, RecorderStep, CodegenOptions } from '@web-testing-ide/common'
+import { RecordingSession, RecorderStep, CodegenOptions, SelectorCandidate } from '@web-testing-ide/common'
 
 export class CodeGenerator {
   private defaultOptions: CodegenOptions = {
@@ -90,7 +90,25 @@ export class CodeGenerator {
         return `    await page.check('${selector}', { timeout: ${timeout} })`
       
       case 'select':
+        if (typeof step.value === 'object' && step.value && 'value' in step.value) {
+          return `    await page.selectOption('${selector}', '${step.value.value}', { timeout: ${timeout} })`
+        }
         return `    await page.selectOption('${selector}', '${step.value || ''}', { timeout: ${timeout} })`
+      
+      case 'focus':
+        return `    await page.focus('${selector}', { timeout: ${timeout} })`
+      
+      case 'submit':
+        return `    await page.click('${selector}[type="submit"]', { timeout: ${timeout} })`
+      
+      case 'hover':
+        return `    await page.hover('${selector}', { timeout: ${timeout} })`
+      
+      case 'keypress':
+        if (typeof step.value === 'object' && step.value && 'key' in step.value) {
+          return `    await page.keyboard.press('${step.value.key}')`
+        }
+        return `    await page.keyboard.press('Enter')`
       
       case 'wait':
         return `    await page.waitForTimeout(${step.value || 1000})`
@@ -158,7 +176,25 @@ export class CodeGenerator {
         return `    cy.get('${selector}').check()`
       
       case 'select':
+        if (typeof step.value === 'object' && step.value && 'value' in step.value) {
+          return `    cy.get('${selector}').select('${step.value.value}')`
+        }
         return `    cy.get('${selector}').select('${step.value || ''}')`
+      
+      case 'focus':
+        return `    cy.get('${selector}').focus()`
+      
+      case 'submit':
+        return `    cy.get('${selector}').submit()`
+      
+      case 'hover':
+        return `    cy.get('${selector}').trigger('mouseover')`
+      
+      case 'keypress':
+        if (typeof step.value === 'object' && step.value && 'key' in step.value) {
+          return `    cy.get('body').type('{${String(step.value.key).toLowerCase()}}')`
+        }
+        return `    cy.get('body').type('{enter}')`
       
       case 'wait':
         return `    cy.wait(${step.value || 1000})`
@@ -202,6 +238,9 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.OutputType;
@@ -214,6 +253,9 @@ import java.time.Duration;`
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 import time`
   }
 
@@ -282,6 +324,53 @@ import time`
             element.click()`
       }
       
+      case 'select': {
+        if (isJava) {
+          const value = typeof step.value === 'object' && step.value && 'value' in step.value ? step.value.value : step.value
+          return `        Select select = new Select(wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))));
+        select.selectByValue("${value || ''}");`
+        }
+        const value = typeof step.value === 'object' && step.value && 'value' in step.value ? step.value.value : step.value
+        return `        select_element = Select(self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}'))))
+        select_element.select_by_value('${value || ''}')`
+      }
+      
+      case 'focus': {
+        if (isJava) {
+          return `        Actions actions = new Actions(driver);
+        actions.moveToElement(wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")))).click().perform();`
+        }
+        return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
+        element.click()`
+      }
+      
+      case 'submit': {
+        if (isJava) {
+          return `        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}"))).submit();`
+        }
+        return `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).submit()`
+      }
+      
+      case 'hover': {
+        if (isJava) {
+          return `        Actions actions = new Actions(driver);
+        actions.moveToElement(wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")))).perform();`
+        }
+        return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
+        ActionChains(self.driver).move_to_element(element).perform()`
+      }
+      
+      case 'keypress': {
+        if (isJava) {
+          const key = typeof step.value === 'object' && step.value && 'key' in step.value ? 
+            (String(step.value.key) === 'Enter' ? 'ENTER' : String(step.value.key).toUpperCase()) : 'ENTER'
+          return `        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))).sendKeys(Keys.${key});`
+        }
+        const key = typeof step.value === 'object' && step.value && 'key' in step.value ? String(step.value.key) : 'ENTER'
+        return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
+        element.send_keys(Keys.${key.toUpperCase()})`
+      }
+      
       case 'wait': {
         const waitTime = Number(step.value) || 1000
         return isJava
@@ -337,5 +426,44 @@ import time`
     return `
     def teardown_method(self):
         self.driver.quit()`
+  }
+
+  private getSeleniumLocatorMethod(selector: string, selectors: SelectorCandidate[]): string {
+    const bestSelector = selectors[0]
+    
+    if (bestSelector.type === 'id') {
+      const id = selector.replace('#', '')
+      return `By.id("${id}")`
+    }
+    
+    if (bestSelector.type === 'name') {
+      const name = selector.replace(/\[name="([^"]+)"\]/, '$1')
+      return `By.name("${name}")`
+    }
+    
+    if (bestSelector.type === 'xpath') {
+      return `By.xpath("${selector}")`
+    }
+    
+    if (bestSelector.type === 'css') {
+      return `By.cssSelector("${selector}")`
+    }
+    
+    if (bestSelector.type === 'data-testid') {
+      const testId = selector.replace(/\[data-testid="([^"]+)"\]/, '$1')
+      return `By.cssSelector("[data-testid='${testId}']")`
+    }
+    
+    if (bestSelector.type === 'aria-label') {
+      const ariaLabel = selector.replace(/\[aria-label="([^"]+)"\]/, '$1')
+      return `By.cssSelector("[aria-label='${ariaLabel}']")`
+    }
+    
+    if (bestSelector.type === 'text') {
+      const text = selector.replace('text=', '').replace('link=', '')
+      return `By.linkText("${text}")`
+    }
+    
+    return `By.cssSelector("${selector}")`
   }
 }

@@ -1,12 +1,12 @@
 export interface RecorderStep {
   id: string
-  type: 'click' | 'doubleClick' | 'type' | 'navigate' | 'select' | 'upload' | 'download' | 'drag' | 'wait' | 'screenshot' | 'assertion' | 'checkbox' | 'radio' | 'focus' | 'submit' | 'keypress'
+  type: 'click' | 'doubleClick' | 'type' | 'navigate' | 'select' | 'upload' | 'download' | 'drag' | 'wait' | 'screenshot' | 'assertion' | 'checkbox' | 'radio' | 'focus' | 'submit' | 'keypress' | 'hover'
   timestamp: number
   url: string
   viewport: { width: number; height: number }
   frameUrl?: string
   selectors: SelectorCandidate[]
-  value?: string | number | boolean
+  value?: string | number | boolean | object
   screenshot?: string
   metadata: StepMetadata
   assertion?: AssertionData
@@ -20,7 +20,7 @@ export interface AssertionData {
 
 export interface SelectorCandidate {
   selector: string
-  type: 'id' | 'data-testid' | 'css' | 'xpath' | 'text' | 'aria-label'
+  type: 'id' | 'data-testid' | 'css' | 'xpath' | 'text' | 'aria-label' | 'name'
   score: number
   isUnique: boolean
 }
@@ -44,6 +44,18 @@ export interface StepMetadata {
   boundingBox?: { x: number; y: number; width: number; height: number }
   innerText?: string
   tagName?: string
+  elementScreenshot?: string
+  screenshotError?: string
+  clickCoordinates?: { x: number; y: number }
+  mouseCoordinates?: { x: number; y: number }
+  modifiers?: {
+    ctrlKey: boolean
+    shiftKey: boolean
+    altKey: boolean
+    metaKey: boolean
+  }
+  inputType?: string
+  placeholder?: string
 }
 
 export interface RecordingSession {

@@ -4,6 +4,7 @@ export class SelectorEngine {
   private readonly SCORING_WEIGHTS = {
     id: 100,
     'data-testid': 90,
+    name: 85,
     'aria-label': 80,
     css: 60,
     text: 50,
@@ -32,6 +33,16 @@ export class SelectorEngine {
         type: 'data-testid',
         score: this.calculateScore('data-testid', true, true),
         isUnique: true
+      })
+    }
+
+    const name = element.getAttribute('name')
+    if (name) {
+      candidates.push({
+        selector: `[name="${name}"]`,
+        type: 'name',
+        score: this.calculateScore('name', false, true),
+        isUnique: false
       })
     }
 
@@ -68,7 +79,7 @@ export class SelectorEngine {
       })
     }
 
-    const xpath = this.generateXPath(element)
+    const xpath = this.generateAdvancedXPath(element)
     candidates.push({
       selector: xpath,
       type: 'xpath',
@@ -117,34 +128,48 @@ export class SelectorEngine {
   }
 
   private generateXPath(element: Element): string {
+    return this.generateAdvancedXPath(element)
+  }
+
+  private generateAdvancedXPath(element: Element): string {
     if (element.id) {
       return `//*[@id="${element.id}"]`
     }
 
-    const parts: string[] = []
-    let current: Element | null = element
+    const tagName = element.tagName.toLowerCase()
+    const parent = element.parentElement
 
-    while (current && current.nodeType === 1) {
-      let selector = current.tagName.toLowerCase()
-      
-      if (current.id) {
-        selector += `[@id="${current.id}"]`
-        parts.unshift(selector)
-        break
-      }
-
-      const siblings = Array.from(current.parentNode?.children || [])
-        .filter(sibling => sibling.tagName === current!.tagName)
-      
-      if (siblings.length > 1) {
-        const index = siblings.indexOf(current) + 1
-        selector += `[${index}]`
-      }
-
-      parts.unshift(selector)
-      current = current.parentElement
+    if (!parent || parent.tagName === 'HTML') {
+      return `/${tagName}`
     }
 
-    return '//' + parts.join('/')
+    const type = element.getAttribute('type')
+    const name = element.getAttribute('name')
+    const className = element.getAttribute('class')
+    const role = element.getAttribute('role')
+
+    if (name) {
+      const nameXPath = `${this.generateAdvancedXPath(parent)}/${tagName}[@name="${name}"]`
+      return nameXPath
+    }
+
+    if (type) {
+      const typeXPath = `${this.generateAdvancedXPath(parent)}/${tagName}[@type="${type}"]`
+      return typeXPath
+    }
+
+    if (role) {
+      const roleXPath = `${this.generateAdvancedXPath(parent)}/${tagName}[@role="${role}"]`
+      return roleXPath
+    }
+
+    const siblings = Array.from(parent.children).filter(child => child.tagName === element.tagName)
+    const index = siblings.indexOf(element) + 1
+
+    if (siblings.length === 1) {
+      return `${this.generateAdvancedXPath(parent)}/${tagName}`
+    } else {
+      return `${this.generateAdvancedXPath(parent)}/${tagName}[${index}]`
+    }
   }
 }
