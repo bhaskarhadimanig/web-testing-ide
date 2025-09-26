@@ -82,10 +82,22 @@ export class TestRunner {
       await fs.mkdir(outputDir, { recursive: true })
 
       const framework = this.detectFramework(testCode)
-      const extension = framework === 'selenium' && testCode.includes('import org.openqa.selenium') ? '.java' : 
-                       framework === 'selenium' && testCode.includes('from selenium') ? '.py' :
-                       framework === 'cypress' ? '.cy.js' : '.spec.ts'
-      const tempTestPath = join(outputDir, `generated-test${extension}`)
+      let filename = 'generated-test'
+      let extension = '.spec.ts'
+      
+      if (framework === 'selenium' && testCode.includes('import org.openqa.selenium')) {
+        const classMatch = testCode.match(/public\s+class\s+(\w+)/)
+        if (classMatch) {
+          filename = classMatch[1]
+        }
+        extension = '.java'
+      } else if (framework === 'selenium' && testCode.includes('from selenium')) {
+        extension = '.py'
+      } else if (framework === 'cypress') {
+        extension = '.cy.js'
+      }
+      
+      const tempTestPath = join(outputDir, `${filename}${extension}`)
       await fs.writeFile(tempTestPath, testCode, 'utf-8')
 
       const result = await this.executeTest(tempTestPath, outputDir, opts, framework)
