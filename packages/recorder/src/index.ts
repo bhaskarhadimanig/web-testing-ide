@@ -436,16 +436,29 @@ export class RecorderEngine {
         })
       }, true)
 
+      let inputTimeouts = new Map();
+      
       document.addEventListener('input', (e) => {
         const target = e.target as HTMLInputElement
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-          const selectors = generateAdvancedSelectors(target)
-          captureEvent('type', target, { 
-            value: target.value, 
-            selectors,
-            inputType: target.type,
-            placeholder: target.placeholder
-          })
+          const elementKey = target.id || target.name || target.className || 'default';
+          
+          if (inputTimeouts.has(elementKey)) {
+            clearTimeout(inputTimeouts.get(elementKey));
+          }
+          
+          const timeoutId = setTimeout(() => {
+            const selectors = generateAdvancedSelectors(target)
+            captureEvent('type', target, { 
+              value: target.value, 
+              selectors,
+              inputType: target.type,
+              placeholder: target.placeholder
+            })
+            inputTimeouts.delete(elementKey);
+          }, 1000); // Wait 1 second after user stops typing
+          
+          inputTimeouts.set(elementKey, timeoutId);
         }
       }, true)
 
@@ -630,11 +643,11 @@ export class RecorderEngine {
       }
 
       if (this.isRecording) {
-        setTimeout(pollEvents, 100)
+        setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
       }
     }
 
-    setTimeout(pollEvents, 100)
+    setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
   }
 
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {

@@ -294,6 +294,8 @@ export class TestRunner {
             
             try {
               execSync('pkill -f chrome', { stdio: 'ignore' })
+              execSync('pkill -f chromium', { stdio: 'ignore' })
+              execSync('pkill -f chromedriver', { stdio: 'ignore' })
             } catch (e) {
             }
             
@@ -301,8 +303,11 @@ export class TestRunner {
               execSync('rm -rf /tmp/chrome-selenium-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/chrome-data-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/chrome-cache-*', { stdio: 'ignore' })
+              execSync('rm -rf /tmp/.org.chromium.*', { stdio: 'ignore' })
             } catch (e) {
             }
+            
+            execSync('sleep 1', { stdio: 'ignore' })
             
             console.log('Chrome cleanup completed successfully') // (important-comment)
           } catch (error) {
@@ -977,13 +982,18 @@ test('Single step execution', async ({ page }) => {
             ` : ''}
 
             <div class="section">
-                <h3>📸 Test Artifacts (${testRun.artifacts.length})</h3>
+                <h3>📁 Test Artifacts by Category</h3>
+                ${this.generateArtifactsByCategory(testRun.artifacts)}
+            </div>
+            
+            <div class="section">
+                <h3>📸 All Artifacts (${testRun.artifacts.length})</h3>
                 <div class="artifacts">
                     ${testRun.artifacts.map((artifact: any) => `
                         <div class="artifact">
                             <div class="artifact-title">${artifact.type.toUpperCase()}</div>
                             ${artifact.type === 'screenshot' ? `
-                                <img src="file://${artifact.path}" alt="Test Screenshot" />
+                                <img src="file://${artifact.path}" alt="Test Screenshot" onclick="openImageModal('${artifact.path}')" style="cursor: pointer;" />
                             ` : `
                                 <div style="padding: 20px;">
                                     <a href="file://${artifact.path}" target="_blank">📄 View ${artifact.type}</a>
@@ -991,6 +1001,8 @@ test('Single step execution', async ({ page }) => {
                             `}
                             <div style="padding: 10px; font-size: 0.9em; color: #666;">
                                 📁 ${artifact.path}
+                                <br>📅 ${new Date().toLocaleString()}
+                                <br>📏 ${artifact.type === 'screenshot' ? 'Image' : 'File'}
                             </div>
                         </div>
                     `).join('')}
@@ -999,6 +1011,32 @@ test('Single step execution', async ({ page }) => {
             </div>
         </div>
     </div>
+    <script>
+        function toggleCategory(category) {
+            const content = document.getElementById(category + '-content');
+            const toggle = document.getElementById(category + '-toggle');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+        
+        function openImageModal(imagePath) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;';
+            modal.onclick = () => document.body.removeChild(modal);
+            
+            const img = document.createElement('img');
+            img.src = 'file://' + imagePath;
+            img.style.cssText = 'max-width: 90%; max-height: 90%; border-radius: 8px;';
+            
+            modal.appendChild(img);
+            document.body.appendChild(modal);
+        }
+    </script>
 </body>
 </html>
       `
@@ -1007,5 +1045,45 @@ test('Single step execution', async ({ page }) => {
     } catch (error) {
       console.error('Failed to generate HTML report:', error)
     }
+  }
+
+  private generateArtifactsByCategory(artifacts: TestArtifact[]): string {
+    const categories = {
+      screenshots: artifacts.filter(a => a.type === 'screenshot'),
+      traces: artifacts.filter(a => a.type === 'trace'),
+      videos: artifacts.filter(a => a.type === 'video'),
+      logs: artifacts.filter(a => a.type === 'log')
+    };
+
+    return Object.entries(categories)
+      .filter(([_, items]) => items.length > 0)
+      .map(([category, items]) => `
+        <div class="category-folder" onclick="toggleCategory('${category}')">
+          <h4 style="cursor: pointer; padding: 15px; background: #f8f9fa; border-radius: 8px; margin: 10px 0;">
+            📁 ${category.toUpperCase()} (${items.length} items) 
+            <span id="${category}-toggle">▼</span>
+          </h4>
+          <div id="${category}-content" class="category-content" style="display: none; margin-left: 20px;">
+            <div class="artifacts">
+              ${items.map((artifact, index) => `
+                <div class="artifact" style="margin: 10px 0;">
+                  <div class="artifact-title">${category.slice(0, -1).toUpperCase()} ${index + 1}</div>
+                  ${artifact.type === 'screenshot' ? `
+                    <img src="file://${artifact.path}" alt="Screenshot ${index + 1}" style="max-width: 300px; cursor: pointer;" onclick="openImageModal('${artifact.path}')" />
+                  ` : `
+                    <div style="padding: 20px;">
+                      <a href="file://${artifact.path}" target="_blank">📄 View ${artifact.type}</a>
+                    </div>
+                  `}
+                  <div style="padding: 10px; font-size: 0.9em; color: #666;">
+                    📁 ${artifact.path}
+                    <br>📅 ${new Date().toLocaleString()}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `).join('');
   }
 }
