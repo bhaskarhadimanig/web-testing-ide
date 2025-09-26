@@ -456,7 +456,7 @@ export class RecorderEngine {
               placeholder: target.placeholder
             })
             inputTimeouts.delete(elementKey);
-          }, 1000); // Wait 1 second after user stops typing
+          }, 1500); // Wait 1.5 seconds after user stops typing for better consolidation
           
           inputTimeouts.set(elementKey, timeoutId);
         }
@@ -548,7 +548,7 @@ export class RecorderEngine {
             const selectors = generateAdvancedSelectors(target)
             captureEvent('hover', target, { selectors })
           }
-        }, 500) // Only capture hover after 500ms
+        }, 800) // Increased to 800ms to reduce unnecessary hover events
       }, true)
 
       document.addEventListener('mouseout', () => {
@@ -643,11 +643,11 @@ export class RecorderEngine {
       }
 
       if (this.isRecording) {
-        setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
+        setTimeout(pollEvents, 500) // Changed from 300ms to 500ms for better stability
       }
     }
 
-    setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
+    setTimeout(pollEvents, 500) // Changed from 300ms to 500ms for better stability
   }
 
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {

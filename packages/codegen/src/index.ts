@@ -282,6 +282,8 @@ public class ${className} {
         options.addArguments("--disable-background-timer-throttling");
         options.addArguments("--disable-renderer-backgrounding");
         options.addArguments("--disable-backgrounding-occluded-windows");
+        options.addArguments("--disable-web-security");
+        options.addArguments("--disable-features=VizDisplayCompositor");
         options.addArguments("--remote-debugging-port=0");
         options.addArguments("--window-size=1280,720");
         options.addArguments("--start-maximized");
@@ -318,23 +320,29 @@ public class ${className} {
     switch (step.type) {
       case 'navigate':
         return isJava 
-          ? `        driver.get("${step.url}");`
-          : `        self.driver.get('${step.url}')`
+          ? `        driver.get("${step.url}");
+        try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
+          : `        self.driver.get('${step.url}')
+        time.sleep(3)`
       
       case 'click':
         return isJava
-          ? `        wait.until(ExpectedConditions.elementToBeClickable(${locatorMethod})).click();`
-          : `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).click()`
+          ? `        wait.until(ExpectedConditions.elementToBeClickable(${locatorMethod})).click();
+        try { Thread.sleep(1500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
+          : `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).click()
+        time.sleep(1.5)`
       
       case 'type': {
         if (isJava) {
           return `        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod}));
         element.clear();
-        element.sendKeys("${step.value || ''}");`
+        element.sendKeys("${step.value || ''}");
+        try { Thread.sleep(1000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
         }
         return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
         element.clear()
-        element.send_keys('${step.value || ''}')`
+        element.send_keys('${step.value || ''}')
+        time.sleep(1)`
       }
       
       case 'checkbox':
@@ -399,7 +407,7 @@ public class ${className} {
       
       case 'wait': {
         const waitTime = Number(step.value) || 1000
-        const actualWaitTime = Math.max(waitTime, 5000) + 2000
+        const actualWaitTime = Math.max(waitTime, 8000) + 3000
         return isJava
           ? `        try { Thread.sleep(${actualWaitTime}); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
           : `        time.sleep(${actualWaitTime / 1000})`

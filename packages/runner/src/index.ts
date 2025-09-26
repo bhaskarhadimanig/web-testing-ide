@@ -296,6 +296,7 @@ export class TestRunner {
               execSync('pkill -f chrome', { stdio: 'ignore' })
               execSync('pkill -f chromium', { stdio: 'ignore' })
               execSync('pkill -f chromedriver', { stdio: 'ignore' })
+              execSync('pkill -f "Google Chrome"', { stdio: 'ignore' })
             } catch (e) {
             }
             
@@ -304,10 +305,11 @@ export class TestRunner {
               execSync('rm -rf /tmp/chrome-data-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/chrome-cache-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/.org.chromium.*', { stdio: 'ignore' })
+              execSync('rm -rf /tmp/.com.google.Chrome.*', { stdio: 'ignore' })
             } catch (e) {
             }
             
-            execSync('sleep 1', { stdio: 'ignore' })
+            execSync('sleep 2', { stdio: 'ignore' })
             
             console.log('Chrome cleanup completed successfully') // (important-comment)
           } catch (error) {
@@ -1018,24 +1020,48 @@ test('Single step execution', async ({ page }) => {
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 toggle.textContent = '▲';
+                toggle.style.transform = 'rotate(180deg)';
             } else {
                 content.style.display = 'none';
                 toggle.textContent = '▼';
+                toggle.style.transform = 'rotate(0deg)';
             }
         }
         
         function openImageModal(imagePath) {
             const modal = document.createElement('div');
-            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer;';
             modal.onclick = () => document.body.removeChild(modal);
+            
+            const container = document.createElement('div');
+            container.style.cssText = 'position: relative; max-width: 95%; max-height: 95%; display: flex; flex-direction: column; align-items: center;';
             
             const img = document.createElement('img');
             img.src = 'file://' + imagePath;
-            img.style.cssText = 'max-width: 90%; max-height: 90%; border-radius: 8px;';
+            img.style.cssText = 'max-width: 100%; max-height: 90%; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);';
             
-            modal.appendChild(img);
+            const caption = document.createElement('div');
+            caption.style.cssText = 'color: white; margin-top: 15px; text-align: center; font-size: 1.1em; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 8px;';
+            caption.textContent = imagePath.split('/').pop();
+            
+            const closeBtn = document.createElement('div');
+            closeBtn.style.cssText = 'position: absolute; top: -40px; right: -40px; color: white; font-size: 2em; cursor: pointer; background: rgba(0,0,0,0.7); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;';
+            closeBtn.textContent = '×';
+            closeBtn.onclick = (e) => { e.stopPropagation(); document.body.removeChild(modal); };
+            
+            container.appendChild(img);
+            container.appendChild(caption);
+            container.appendChild(closeBtn);
+            modal.appendChild(container);
             document.body.appendChild(modal);
         }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstCategory = document.querySelector('.category-folder h4');
+            if (firstCategory) {
+                firstCategory.click();
+            }
+        });
     </script>
 </body>
 </html>
@@ -1058,26 +1084,34 @@ test('Single step execution', async ({ page }) => {
     return Object.entries(categories)
       .filter(([_, items]) => items.length > 0)
       .map(([category, items]) => `
-        <div class="category-folder" onclick="toggleCategory('${category}')">
-          <h4 style="cursor: pointer; padding: 15px; background: #f8f9fa; border-radius: 8px; margin: 10px 0;">
-            📁 ${category.toUpperCase()} (${items.length} items) 
-            <span id="${category}-toggle">▼</span>
+        <div class="category-folder" style="margin: 20px 0; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
+          <h4 onclick="toggleCategory('${category}')" style="cursor: pointer; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin: 0; font-size: 1.1em; display: flex; justify-content: space-between; align-items: center;">
+            <span>📁 ${category.toUpperCase()} (${items.length} items)</span>
+            <span id="${category}-toggle" style="font-size: 1.2em; transition: transform 0.3s;">▼</span>
           </h4>
-          <div id="${category}-content" class="category-content" style="display: none; margin-left: 20px;">
-            <div class="artifacts">
+          <div id="${category}-content" class="category-content" style="display: none; padding: 20px; background: #fafafa;">
+            <div class="artifacts" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
               ${items.map((artifact, index) => `
-                <div class="artifact" style="margin: 10px 0;">
-                  <div class="artifact-title">${category.slice(0, -1).toUpperCase()} ${index + 1}</div>
+                <div class="artifact" style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                  <div class="artifact-title" style="font-weight: bold; color: #333; margin-bottom: 15px; padding: 10px; background: #f0f0f0; border-radius: 8px; text-align: center;">
+                    ${category.slice(0, -1).toUpperCase()} ${index + 1}
+                  </div>
                   ${artifact.type === 'screenshot' ? `
-                    <img src="file://${artifact.path}" alt="Screenshot ${index + 1}" style="max-width: 300px; cursor: pointer;" onclick="openImageModal('${artifact.path}')" />
+                    <div style="text-align: center; margin-bottom: 15px;">
+                      <img src="file://${artifact.path}" alt="Screenshot ${index + 1}" style="max-width: 100%; height: auto; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15);" onclick="openImageModal('${artifact.path}')" />
+                      <div style="margin-top: 10px; font-size: 0.9em; color: #666;">Click to view full size</div>
+                    </div>
                   ` : `
-                    <div style="padding: 20px;">
-                      <a href="file://${artifact.path}" target="_blank">📄 View ${artifact.type}</a>
+                    <div style="text-align: center; padding: 30px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                      <div style="font-size: 2em; margin-bottom: 10px;">📄</div>
+                      <a href="file://${artifact.path}" target="_blank" style="text-decoration: none; color: #007bff; font-weight: bold;">View ${artifact.type.toUpperCase()}</a>
                     </div>
                   `}
-                  <div style="padding: 10px; font-size: 0.9em; color: #666;">
-                    📁 ${artifact.path}
-                    <br>📅 ${new Date().toLocaleString()}
+                  <div style="padding: 15px; font-size: 0.9em; color: #666; background: #f8f9fa; border-radius: 8px; line-height: 1.6;">
+                    <div style="margin-bottom: 8px;"><strong>📁 Path:</strong> ${artifact.path.split('/').pop()}</div>
+                    <div style="margin-bottom: 8px;"><strong>📅 Created:</strong> ${new Date().toLocaleString()}</div>
+                    <div style="margin-bottom: 8px;"><strong>📏 Type:</strong> ${artifact.type === 'screenshot' ? 'Image File' : 'Document'}</div>
+                    <div><strong>🔍 Action:</strong> ${artifact.type === 'screenshot' ? 'Click image to enlarge' : 'Click link to open'}</div>
                   </div>
                 </div>
               `).join('')}
