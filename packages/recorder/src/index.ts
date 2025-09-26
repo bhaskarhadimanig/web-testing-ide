@@ -123,14 +123,22 @@ export class RecorderEngine {
     const screenshotPath = `screenshots/${stepId}.png`
     const fullScreenshotPath = join(process.cwd(), 'recordings', this.recording.id, screenshotPath)
     
+    console.log(`Capturing step ${stepId}: ${type} with ${selectors.length} selectors, value:`, value) // (important-comment)
+    
     try {
+      await fs.mkdir(join(process.cwd(), 'recordings', this.recording.id, 'screenshots'), { recursive: true })
+      console.log(`Screenshots directory ensured: ${join(process.cwd(), 'recordings', this.recording.id, 'screenshots')}`) // (important-comment)
+      
+      console.log(`Attempting to capture screenshot: ${fullScreenshotPath}`) // (important-comment)
       await this.page.screenshot({ 
         path: fullScreenshotPath,
         fullPage: false,
         quality: 90,
         type: 'png',
-        animations: 'disabled' // Disable animations for consistent screenshots
+        animations: 'disabled'
       })
+      
+      console.log(`Full page screenshot captured: ${fullScreenshotPath}`) // (important-comment)
 
       let elementScreenshot: string | undefined
       if (elementData?.boundingBox && elementData.boundingBox.width > 0 && elementData.boundingBox.height > 0) {
@@ -138,6 +146,7 @@ export class RecorderEngine {
         const fullElementScreenshotPath = join(process.cwd(), 'recordings', this.recording.id, elementScreenshotPath)
         
         try {
+          console.log(`Attempting element screenshot: ${fullElementScreenshotPath}`) // (important-comment)
           await this.page.screenshot({
             path: fullElementScreenshotPath,
             clip: {
@@ -150,6 +159,7 @@ export class RecorderEngine {
             type: 'png'
           })
           elementScreenshot = elementScreenshotPath
+          console.log(`Element screenshot captured: ${fullElementScreenshotPath}`) // (important-comment)
         } catch (clipError) {
           console.warn('Failed to capture element screenshot:', clipError)
         }
@@ -175,10 +185,10 @@ export class RecorderEngine {
 
       this.steps.push(step)
       
-      console.log(`Captured step ${stepId}: ${type} with ${selectors.length} selectors`)
+      console.log(`Successfully captured step ${stepId}: ${type} with ${selectors.length} selectors, screenshot: ${step.screenshot}`) // (important-comment)
       
     } catch (error) {
-      console.error(`Failed to capture screenshot for step ${stepId}:`, error)
+      console.error(`Failed to capture screenshot for step ${stepId}:`, error) // (important-comment)
       
       const step: RecorderStep = {
         id: stepId,
@@ -199,6 +209,8 @@ export class RecorderEngine {
       }
 
       this.steps.push(step)
+      
+      console.log(`Captured step ${stepId} without screenshot: ${type} with ${selectors.length} selectors`) // (important-comment)
     }
   }
 
@@ -521,10 +533,38 @@ export class RecorderEngine {
           ;(window as any).__recordingEvents = []
           return events
         })
+        
+        if (events.length > 0) {
+          console.log(`Polling found ${events.length} events:`, events.map((e: any) => e.type)) // (important-comment)
+        }
 
         for (const event of events) {
           const selectors = await this.generateSelectorsFromEvent(event)
-          const value = event.value && typeof event.value === 'object' ? event.value.value : event.value
+          
+          let value: any
+          if (event.value) {
+            if (typeof event.value === 'object') {
+              if (event.type === 'type' && 'value' in event.value) {
+                value = event.value.value
+              } else if (event.type === 'checkbox' && 'checked' in event.value) {
+                value = event.value.checked
+              } else if (event.type === 'radio' && 'checked' in event.value) {
+                value = event.value.checked
+              } else if (event.type === 'select' && 'selectedValue' in event.value) {
+                value = { selectedValue: event.value.selectedValue, selectedText: event.value.selectedText }
+              } else if (event.type === 'keypress' && 'key' in event.value) {
+                value = { key: event.value.key }
+              } else if ('value' in event.value) {
+                value = event.value.value
+              } else {
+                value = event.value
+              }
+            } else {
+              value = event.value
+            }
+          }
+          
+          console.log(`Processing event: ${event.type}, selectors: ${selectors.length}, value:`, value) // (important-comment)
           await this.captureStep(event.type, this.page!.url(), selectors, value, event.elementData)
         }
       } catch (error) {
@@ -542,9 +582,12 @@ export class RecorderEngine {
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {
     if (!this.page) return []
     
-    if (event.value && event.value.selectors) {
+    if (event.value && typeof event.value === 'object' && event.value.selectors) {
+      console.log(`Using pre-generated selectors for ${event.type}:`, event.value.selectors.length) // (important-comment)
       return event.value.selectors
     }
+    
+    console.log(`Generating selectors from element data for event: ${event.type}`) // (important-comment)
     
     try {
       const selectors = await this.page.evaluate((eventData) => {
@@ -711,6 +754,7 @@ export class RecorderEngine {
         return selectors.sort((a, b) => b.score - a.score)
       }, event)
       
+      console.log(`Generated ${selectors.length} selectors for ${event.type}`) // (important-comment)
       return selectors
     } catch (error) {
       console.error('Error generating selectors:', error)

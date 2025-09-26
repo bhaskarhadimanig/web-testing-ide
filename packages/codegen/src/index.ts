@@ -288,6 +288,7 @@ import time`
   private generateSeleniumStep(step: RecorderStep, options: CodegenOptions): string {
     const selector = step.selectors[0]?.selector || 'body'
     const isJava = (options.language as string) === 'java'
+    const locatorMethod = this.getSeleniumLocatorMethod(selector, step.selectors)
 
     switch (step.type) {
       case 'navigate':
@@ -297,12 +298,12 @@ import time`
       
       case 'click':
         return isJava
-          ? `        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}"))).click();`
+          ? `        wait.until(ExpectedConditions.elementToBeClickable(${locatorMethod})).click();`
           : `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).click()`
       
       case 'type': {
         if (isJava) {
-          return `        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")));
+          return `        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod}));
         element.clear();
         element.sendKeys("${step.value || ''}");`
         }
@@ -314,7 +315,7 @@ import time`
       case 'checkbox':
       case 'radio': {
         if (isJava) {
-          return `        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}")));
+          return `        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(${locatorMethod}));
         if (${step.value ? 'true' : 'false'} != element.isSelected()) {
             element.click();
         }`
@@ -327,7 +328,7 @@ import time`
       case 'select': {
         if (isJava) {
           const value = typeof step.value === 'object' && step.value && 'value' in step.value ? step.value.value : step.value
-          return `        Select select = new Select(wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))));
+          return `        Select select = new Select(wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod})));
         select.selectByValue("${value || ''}");`
         }
         const value = typeof step.value === 'object' && step.value && 'value' in step.value ? step.value.value : step.value
@@ -338,7 +339,7 @@ import time`
       case 'focus': {
         if (isJava) {
           return `        Actions actions = new Actions(driver);
-        actions.moveToElement(wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")))).click().perform();`
+        actions.moveToElement(wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod}))).click().perform();`
         }
         return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
         element.click()`
@@ -346,7 +347,7 @@ import time`
       
       case 'submit': {
         if (isJava) {
-          return `        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}"))).submit();`
+          return `        wait.until(ExpectedConditions.elementToBeClickable(${locatorMethod})).submit();`
         }
         return `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).submit()`
       }
@@ -354,7 +355,7 @@ import time`
       case 'hover': {
         if (isJava) {
           return `        Actions actions = new Actions(driver);
-        actions.moveToElement(wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")))).perform();`
+        actions.moveToElement(wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod}))).perform();`
         }
         return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
         ActionChains(self.driver).move_to_element(element).perform()`
@@ -364,7 +365,7 @@ import time`
         if (isJava) {
           const key = typeof step.value === 'object' && step.value && 'key' in step.value ? 
             (String(step.value.key) === 'Enter' ? 'ENTER' : String(step.value.key).toUpperCase()) : 'ENTER'
-          return `        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))).sendKeys(Keys.${key});`
+          return `        wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod})).sendKeys(Keys.${key});`
         }
         const key = typeof step.value === 'object' && step.value && 'key' in step.value ? String(step.value.key) : 'ENTER'
         return `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))
@@ -390,11 +391,11 @@ import time`
             case 'exists':
             case 'visible':
               return isJava
-                ? `        assert wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("${selector}"))) != null;`
+                ? `        assert wait.until(ExpectedConditions.visibilityOfElementLocated(${locatorMethod})) != null;`
                 : `        assert self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '${selector}')))`
             case 'containsText':
               return isJava
-                ? `        assert wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))).getText().contains("${assertion.expectedValue}");`
+                ? `        assert wait.until(ExpectedConditions.presenceOfElementLocated(${locatorMethod})).getText().contains("${assertion.expectedValue}");`
                 : `        assert '${assertion.expectedValue}' in self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}'))).text`
             case 'urlContains':
               return isJava

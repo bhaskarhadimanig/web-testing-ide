@@ -12,7 +12,7 @@ export interface RunnerOptions {
 
 export class TestRunner {
   private defaultOptions: RunnerOptions = {
-    headless: false, // Changed to false for visible browser execution
+    headless: false, // Ensure browser is visible during test execution
     timeout: 30000,
     retries: 3,
     outputDir: 'test-results'
@@ -158,6 +158,9 @@ export class TestRunner {
       
       if (!options.headless) {
         args.push('--headed')
+        console.log(`Browser will run in headed mode for visible execution`) // (important-comment)
+      } else {
+        console.log(`Browser will run in headless mode`) // (important-comment)
       }
 
       const child = spawn('npx', ['playwright', ...args], {
