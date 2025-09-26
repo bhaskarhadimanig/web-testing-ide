@@ -20,7 +20,7 @@ describe('StepCard', () => {
     
     expect(screen.getByText('click')).toBeInTheDocument()
     expect(screen.getByText('Step 1')).toBeInTheDocument()
-    expect(screen.getByText('.button')).toBeInTheDocument()
+    expect(screen.getByText('Click → .button (css, score: 1)')).toBeInTheDocument()
   })
 
   test('calls onRunSingle when run button is clicked', () => {
