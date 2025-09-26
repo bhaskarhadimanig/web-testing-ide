@@ -168,8 +168,9 @@ export class TestRunner {
           args = ['-cp', '.:/usr/share/java/selenium-server-standalone.jar:/usr/share/java/junit-platform-console-standalone.jar', testFilePath]
           console.log(`Compiling Selenium Java test: ${command} ${args.join(' ')}`) // (important-comment)
           
+          
         } else {
-          command = 'python'
+          command = 'python3'
           args = [testFilePath]
           console.log(`Executing Selenium Python test: ${command} ${args.join(' ')}`) // (important-comment)
         }
@@ -230,7 +231,102 @@ export class TestRunner {
       })
 
       child.on('close', async (code) => {
-        console.log(`Playwright test process exited with code: ${code}`) // (important-comment)
+        console.log(`Test process exited with code: ${code}`) // (important-comment)
+        
+        if (framework === 'selenium' && testFilePath.endsWith('.java') && code === 0 && command === 'javac') {
+          console.log(`Java compilation successful, now executing the test...`) // (important-comment)
+          
+          const className = path.basename(testFilePath, '.java')
+          const classDir = path.dirname(testFilePath)
+          
+          const javaChild = spawn('java', [
+            '-cp', `.:/usr/share/java/selenium-server-standalone.jar:/usr/share/java/junit-platform-console-standalone.jar:${classDir}`,
+            'org.junit.platform.console.ConsoleLauncher',
+            '--class-path', classDir,
+            '--select-class', className
+          ], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: process.cwd(),
+            env: {
+              ...process.env,
+              DISPLAY: process.env.DISPLAY || ':0'
+            }
+          })
+          
+          let javaStdout = ''
+          let javaStderr = ''
+          
+          javaChild.stdout?.on('data', (data) => {
+            const output = data.toString()
+            javaStdout += output
+            console.log(`Java execution stdout: ${output.trim()}`) // (important-comment)
+          })
+          
+          javaChild.stderr?.on('data', (data) => {
+            const output = data.toString()
+            javaStderr += output
+            console.log(`Java execution stderr: ${output.trim()}`) // (important-comment)
+          })
+          
+          javaChild.on('close', async (javaCode) => {
+            console.log(`Java execution exited with code: ${javaCode}`) // (important-comment)
+            
+            const artifacts: TestArtifact[] = []
+            const errors: TestError[] = []
+            
+            // Collect artifacts after Java execution
+            try {
+              console.log(`Collecting artifacts from output directory: ${outputDir}`) // (important-comment)
+              const files = await fs.readdir(outputDir, { withFileTypes: true })
+              
+              for (const file of files) {
+                if (file.isFile() && !file.name.endsWith('.json')) {
+                  const filePath = join(outputDir, file.name)
+                  let type: TestArtifact['type'] = 'log'
+                  
+                  if (file.name.endsWith('.png') || file.name.endsWith('.jpg') || file.name.endsWith('.jpeg')) {
+                    type = 'screenshot'
+                  } else if (file.name.endsWith('.zip') || file.name.endsWith('.trace')) {
+                    type = 'trace'
+                  } else if (file.name.endsWith('.webm') || file.name.endsWith('.mp4')) {
+                    type = 'video'
+                  } else if (file.name.endsWith('.log') || file.name.endsWith('.txt')) {
+                    type = 'log'
+                  }
+
+                  artifacts.push({
+                    type,
+                    path: filePath
+                  })
+                }
+              }
+            } catch (artifactError) {
+              console.log(`Error collecting artifacts: ${artifactError}`) // (important-comment)
+            }
+            
+            if (javaCode === 0) {
+              resolve({
+                success: true,
+                artifacts,
+                errors: []
+              })
+            } else {
+              errors.push({
+                stepId: 'java-execution',
+                message: `Java test execution failed with exit code ${javaCode}`,
+                stack: javaStderr || javaStdout
+              })
+              
+              resolve({
+                success: false,
+                artifacts,
+                errors
+              })
+            }
+          })
+          
+          return // Don't continue with the original artifact collection
+        }
         const artifacts: TestArtifact[] = []
         const errors: TestError[] = []
 

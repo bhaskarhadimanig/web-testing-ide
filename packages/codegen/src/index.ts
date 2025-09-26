@@ -465,9 +465,29 @@ import time`
         if (textMatch) {
           const text = textMatch[1]
           const element = selector.split(':has-text(')[0] || '*'
+          if (element && element !== '*') {
+            return `By.xpath("//${element}[contains(text(), '${text}')]")`
+          } else {
+            return `By.xpath("//*[contains(text(), '${text}')]")`
+          }
+        }
+      }
+      
+      if (selector.match(/^(span|button|a|div|p):has-text\(/)) {
+        const elementMatch = selector.match(/^(\w+):has-text\("([^"]+)"\)/)
+        if (elementMatch) {
+          const element = elementMatch[1]
+          const text = elementMatch[2]
           return `By.xpath("//${element}[contains(text(), '${text}')]")`
         }
       }
+      
+      if (selector.includes('>>')) {
+        const parts = selector.split('>>')
+        const lastPart = parts[parts.length - 1].trim()
+        return `By.cssSelector("${lastPart}")`
+      }
+      
       return `By.cssSelector("${selector}")`
     }
     
