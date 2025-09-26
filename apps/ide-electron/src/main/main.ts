@@ -78,6 +78,15 @@ ipcMain.handle('recorder:start', async (event, url: string, options: any) => {
       console.log('No display server detected, forcing headless mode')
       options.headless = true
     }
+    
+    try {
+      const { execSync } = require('child_process')
+      execSync('xdpyinfo', { stdio: 'ignore', timeout: 1000 })
+    } catch (error) {
+      console.log('X server not available, forcing headless mode')
+      options.headless = true
+    }
+    
     await recorder.startRecording(url, options)
     return { success: true }
   } catch (error) {
