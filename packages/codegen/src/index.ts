@@ -249,6 +249,7 @@ import org.openqa.selenium.OutputType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
+import java.time.Duration;
 `
     }
     return `from selenium import webdriver
@@ -279,7 +280,7 @@ public class ${className} {
         options.addArguments("--remote-debugging-port=0");
         driver = new ChromeDriver(options);
         driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));
-        wait = new WebDriverWait(driver, 30);
+        wait = new WebDriverWait(driver, Duration.ofSeconds(30));
     }
 
     @Test
