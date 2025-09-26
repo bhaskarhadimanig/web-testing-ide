@@ -133,7 +133,6 @@ export class RecorderEngine {
       await this.page.screenshot({ 
         path: fullScreenshotPath,
         fullPage: false,
-        quality: 90,
         type: 'png',
         animations: 'disabled'
       })
@@ -155,7 +154,6 @@ export class RecorderEngine {
               width: Math.min(this.recording.viewport.width, elementData.boundingBox.width + 20),
               height: Math.min(this.recording.viewport.height, elementData.boundingBox.height + 20)
             },
-            quality: 95,
             type: 'png'
           })
           elementScreenshot = elementScreenshotPath
@@ -528,6 +526,11 @@ export class RecorderEngine {
       if (!this.isRecording || !this.page) return
 
       try {
+        if (this.page.isClosed()) {
+          console.log('Page is closed, stopping event polling') // (important-comment)
+          return
+        }
+
         const events = await this.page.evaluate(() => {
           const events = (window as any).__recordingEvents || []
           ;(window as any).__recordingEvents = []
@@ -568,7 +571,16 @@ export class RecorderEngine {
           await this.captureStep(event.type, this.page!.url(), selectors, value, event.elementData)
         }
       } catch (error) {
-        console.error('Error polling events:', error)
+        if (error instanceof Error && error.message?.includes('Execution context was destroyed')) {
+          console.log('Page navigation detected, re-setting up DOM event listeners') // (important-comment)
+          try {
+            await this.setupDOMEventListeners()
+          } catch (setupError) {
+            console.error('Failed to re-setup DOM event listeners:', setupError)
+          }
+        } else {
+          console.error('Error polling events:', error)
+        }
       }
 
       if (this.isRecording) {
