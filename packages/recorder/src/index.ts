@@ -544,18 +544,13 @@ export class RecorderEngine {
           let value: any
           if (event.value) {
             if (typeof event.value === 'object') {
-              if (event.type === 'type' && 'value' in event.value) {
+              // For form events, extract the actual value, not event.value.value
+              if ('value' in event.value) {
                 value = event.value.value
-              } else if (event.type === 'checkbox' && 'checked' in event.value) {
-                value = event.value.checked
-              } else if (event.type === 'radio' && 'checked' in event.value) {
-                value = event.value.checked
-              } else if (event.type === 'select' && 'selectedValue' in event.value) {
-                value = { selectedValue: event.value.selectedValue, selectedText: event.value.selectedText }
-              } else if (event.type === 'keypress' && 'key' in event.value) {
-                value = { key: event.value.key }
-              } else if ('value' in event.value) {
-                value = event.value.value
+              } else if ('key' in event.value) {
+                value = event.value
+              } else if ('selectors' in event.value) {
+                value = event.value.value || event.value
               } else {
                 value = event.value
               }
