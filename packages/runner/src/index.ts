@@ -570,15 +570,15 @@ test('Single step execution', async ({ page }) => {
 
         <div class="content">
             <div class="stats">
-                <div class="stat-card">
+                <div class="stat">
                     <div class="stat-value">${testRun.completedAt! - testRun.startedAt}ms</div>
                     <div class="stat-label">Duration</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat">
                     <div class="stat-value">${testRun.artifacts.length}</div>
                     <div class="stat-label">Artifacts</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat">
                     <div class="stat-value">${testRun.errors?.length || 0}</div>
                     <div class="stat-label">Errors</div>
                 </div>
