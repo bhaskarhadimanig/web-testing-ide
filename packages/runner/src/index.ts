@@ -293,9 +293,9 @@ export class TestRunner {
             console.log('Cleaning up Chrome processes and directories...') // (important-comment)
             
             try {
-              execSync('pkill -f chrome', { stdio: 'ignore' })
-              execSync('pkill -f chromium', { stdio: 'ignore' })
-              execSync('pkill -f chromedriver', { stdio: 'ignore' })
+              execSync('pkill -9 -f chrome', { stdio: 'ignore' })
+              execSync('pkill -9 -f chromium', { stdio: 'ignore' })
+              execSync('pkill -9 -f chromedriver', { stdio: 'ignore' })
             } catch (e) {
             }
             
@@ -304,10 +304,11 @@ export class TestRunner {
               execSync('rm -rf /tmp/chrome-data-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/chrome-cache-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/.org.chromium.*', { stdio: 'ignore' })
+              execSync('rm -rf /tmp/playwright_chromium*', { stdio: 'ignore' })
             } catch (e) {
             }
             
-            execSync('sleep 1', { stdio: 'ignore' })
+            execSync('sleep 3', { stdio: 'ignore' })
             
             console.log('Chrome cleanup completed successfully') // (important-comment)
           } catch (error) {

@@ -25,7 +25,7 @@ export class RecorderEngine {
     }
 
     this.browser = await chromium.launch({ 
-      headless: options.headless ?? false 
+      headless: options.headless ?? this.detectHeadlessMode()
     })
     
     this.context = await this.browser.newContext({
@@ -437,26 +437,35 @@ export class RecorderEngine {
       }, true)
 
       let inputTimeouts = new Map();
+      let lastInputValues = new Map(); // Track last values to prevent duplicates
       
       document.addEventListener('input', (e) => {
         const target = e.target as HTMLInputElement
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
           const elementKey = target.id || target.name || target.className || 'default';
+          const currentValue = target.value;
+          
+          if (lastInputValues.get(elementKey) === currentValue) {
+            return;
+          }
           
           if (inputTimeouts.has(elementKey)) {
             clearTimeout(inputTimeouts.get(elementKey));
           }
           
           const timeoutId = setTimeout(() => {
-            const selectors = generateAdvancedSelectors(target)
-            captureEvent('type', target, { 
-              value: target.value, 
-              selectors,
-              inputType: target.type,
-              placeholder: target.placeholder
-            })
+            if (target.value === currentValue) {
+              const selectors = generateAdvancedSelectors(target)
+              captureEvent('type', target, { 
+                value: target.value, 
+                selectors,
+                inputType: target.type,
+                placeholder: target.placeholder
+              })
+              lastInputValues.set(elementKey, currentValue);
+            }
             inputTimeouts.delete(elementKey);
-          }, 1000); // Wait 1 second after user stops typing
+          }, 2000); // Increased to 2 seconds after user stops typing
           
           inputTimeouts.set(elementKey, timeoutId);
         }
@@ -643,11 +652,11 @@ export class RecorderEngine {
       }
 
       if (this.isRecording) {
-        setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
+        setTimeout(pollEvents, 500) // Increased from 300ms to 500ms
       }
     }
 
-    setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
+    setTimeout(pollEvents, 500) // Increased from 300ms to 500ms
   }
 
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {
@@ -826,5 +835,13 @@ export class RecorderEngine {
         isUnique: false
       }
     ]
+  }
+
+  private detectHeadlessMode(): boolean {
+    if (!process.env.DISPLAY) {
+      console.log('No DISPLAY environment variable found, using headless mode')
+      return true
+    }
+    return false
   }
 }

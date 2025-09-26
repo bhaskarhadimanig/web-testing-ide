@@ -74,9 +74,14 @@ ipcMain.handle('ping', () => 'pong')
 
 ipcMain.handle('recorder:start', async (event, url: string, options: any) => {
   try {
+    if (!process.env.DISPLAY) {
+      console.log('No display server detected, forcing headless mode')
+      options.headless = true
+    }
     await recorder.startRecording(url, options)
     return { success: true }
   } catch (error) {
+    console.error('Recording start error:', error)
     return { success: false, error: (error as Error).message }
   }
 })

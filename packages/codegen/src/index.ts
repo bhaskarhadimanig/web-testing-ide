@@ -275,7 +275,7 @@ public class ${className} {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random() + "-" + Thread.currentThread().getId() + "-" + System.nanoTime());
+        // options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random() + "-" + Thread.currentThread().getId() + "-" + System.nanoTime() + "-" + new java.util.Random().nextInt(10000));
         options.addArguments("--keep-alive-for-test");
         options.addArguments("--disable-background-timer-throttling");
         options.addArguments("--disable-renderer-backgrounding");
@@ -291,8 +291,16 @@ public class ${className} {
         options.addArguments("--no-default-browser-check");
         options.addArguments("--disable-default-apps");
         options.addArguments("--disable-popup-blocking");
+        options.addArguments("--new-window");
+        options.addArguments("--force-device-scale-factor=1");
         options.addArguments("--disable-extensions-file-access-check");
         options.addArguments("--disable-extensions-http-throttling");
+        options.addArguments("--no-first-run");
+        options.addArguments("--no-default-browser-check");
+        options.addArguments("--disable-default-apps");
+        options.addArguments("--disable-popup-blocking");
+        options.addArguments("--new-window");
+        options.addArguments("--force-device-scale-factor=1");
         driver = new ChromeDriver(options);
         driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));
         wait = new WebDriverWait(driver, Duration.ofSeconds(30));
