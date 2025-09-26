@@ -430,6 +430,10 @@ import time`
   }
 
   private getSeleniumLocatorMethod(selector: string, selectors: SelectorCandidate[]): string {
+    if (!selectors || selectors.length === 0) {
+      return `By.cssSelector("${selector}")`
+    }
+    
     const bestSelector = selectors[0]
     
     if (bestSelector.type === 'id') {
