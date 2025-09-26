@@ -281,6 +281,14 @@ public class ${className} {
         options.addArguments("--remote-debugging-port=0");
         options.addArguments("--window-size=1280,720");
         options.addArguments("--start-maximized");
+        options.addArguments("--disable-blink-features=AutomationControlled");
+        options.addArguments("--disable-infobars");
+        options.addArguments("--no-first-run");
+        options.addArguments("--no-default-browser-check");
+        options.addArguments("--disable-default-apps");
+        options.addArguments("--disable-popup-blocking");
+        options.addArguments("--disable-extensions-file-access-check");
+        options.addArguments("--disable-extensions-http-throttling");
         driver = new ChromeDriver(options);
         driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));
         wait = new WebDriverWait(driver, Duration.ofSeconds(30));
@@ -387,7 +395,7 @@ public class ${className} {
       
       case 'wait': {
         const waitTime = Number(step.value) || 1000
-        const actualWaitTime = Math.max(waitTime, 2000)
+        const actualWaitTime = Math.max(waitTime, 3000)
         return isJava
           ? `        try { Thread.sleep(${actualWaitTime}); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
           : `        time.sleep(${actualWaitTime / 1000})`

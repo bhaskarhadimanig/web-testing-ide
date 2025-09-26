@@ -320,7 +320,10 @@ export class TestRunner {
             cwd: process.cwd(),
             env: {
               ...process.env,
-              DISPLAY: process.env.DISPLAY || ':0'
+              DISPLAY: ':0',
+              XAUTHORITY: process.env.XAUTHORITY || '/home/ubuntu/.Xauthority',
+              XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR || '/tmp',
+              CHROME_DEVEL_SANDBOX: '/usr/local/sbin/chrome-devel-sandbox'
             }
           })
           
