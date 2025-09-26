@@ -548,23 +548,27 @@ export class RecorderEngine {
         }
 
         for (const event of events) {
-          const selectors = await this.generateSelectorsFromEvent(event)
+          console.log(`Processing raw event:`, event) // (important-comment)
+          
+          let selectors: SelectorCandidate[] = []
+          if (event.value && typeof event.value === 'object' && event.value.selectors) {
+            selectors = event.value.selectors
+            console.log(`Using pre-generated selectors: ${selectors.length}`) // (important-comment)
+          } else {
+            selectors = await this.generateSelectorsFromEvent(event)
+            console.log(`Generated selectors from element data: ${selectors.length}`) // (important-comment)
+          }
           
           let value: any
           if (event.value) {
             if (typeof event.value === 'object') {
-              if (event.type === 'type' && 'value' in event.value) {
+              // For form events, extract the actual value, not event.value.value
+              if ('value' in event.value) {
                 value = event.value.value
-              } else if ((event.type === 'checkbox' || event.type === 'radio') && 'value' in event.value) {
-                value = event.value.value
-              } else if (event.type === 'select' && 'value' in event.value && typeof event.value.value === 'object') {
-                value = event.value.value
-              } else if (event.type === 'keypress' && 'key' in event.value) {
-                value = { key: event.value.key }
-              } else if (event.type === 'submit' && 'formData' in event.value) {
-                value = event.value.formData
+              } else if ('key' in event.value) {
+                value = event.value
               } else if ('selectors' in event.value) {
-                value = undefined
+                value = event.value.value || event.value
               } else {
                 value = event.value
               }
