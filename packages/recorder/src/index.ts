@@ -139,8 +139,7 @@ export class RecorderEngine {
       await this.page.screenshot({ 
         path: fullScreenshotPath,
         fullPage: false,
-        type: 'png',
-        animations: 'disabled'
+        type: 'png'
       })
       
       console.log(`Full page screenshot captured: ${fullScreenshotPath}`) // (important-comment)
@@ -585,6 +584,7 @@ export class RecorderEngine {
           console.log('Page navigation detected, re-setting up DOM event listeners') // (important-comment)
           try {
             await this.setupDOMEventListeners()
+            console.log('Successfully re-setup DOM event listeners after navigation') // (important-comment)
           } catch (setupError) {
             console.error('Failed to re-setup DOM event listeners:', setupError)
           }
