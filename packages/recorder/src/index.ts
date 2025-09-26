@@ -599,7 +599,7 @@ export class RecorderEngine {
       return event.value.selectors
     }
     
-    console.log(`Generating selectors from element data for event: ${event.type}`) // (important-comment)
+    console.log(`Generating selectors from element data for event: ${event.type}, elementData:`, event.elementData) // (important-comment)
     
     try {
       const selectors = await this.page.evaluate((eventData) => {
