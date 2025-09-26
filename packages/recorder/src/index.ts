@@ -550,29 +550,37 @@ export class RecorderEngine {
           console.log(`Processing raw event:`, event) // (important-comment)
           
           let selectors: SelectorCandidate[] = []
+          let value: any
+          
           if (event.value && typeof event.value === 'object' && event.value.selectors) {
             selectors = event.value.selectors
             console.log(`Using pre-generated selectors: ${selectors.length}`) // (important-comment)
+            
+            if ('value' in event.value) {
+              value = event.value.value
+            } else if ('key' in event.value) {
+              value = event.value.key
+            } else if ('selectedText' in event.value) {
+              value = event.value
+            } else {
+              value = undefined
+            }
           } else {
             selectors = await this.generateSelectorsFromEvent(event)
             console.log(`Generated selectors from element data: ${selectors.length}`) // (important-comment)
-          }
-          
-          let value: any
-          if (event.value) {
-            if (typeof event.value === 'object') {
-              // For form events, extract the actual value, not event.value.value
-              if ('value' in event.value) {
-                value = event.value.value
-              } else if ('key' in event.value) {
-                value = event.value
-              } else if ('selectors' in event.value) {
-                value = event.value.value || event.value
+            
+            if (event.value) {
+              if (typeof event.value === 'object') {
+                if ('value' in event.value) {
+                  value = event.value.value
+                } else if ('key' in event.value) {
+                  value = event.value.key
+                } else {
+                  value = event.value
+                }
               } else {
                 value = event.value
               }
-            } else {
-              value = event.value
             }
           }
           
@@ -604,15 +612,18 @@ export class RecorderEngine {
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {
     if (!this.page) return []
     
-    if (event.value && typeof event.value === 'object' && event.value.selectors) {
-      console.log(`Using pre-generated selectors for ${event.type}:`, event.value.selectors.length) // (important-comment)
-      return event.value.selectors
-    }
-    
     console.log(`Generating selectors from element data for event: ${event.type}, elementData:`, event.elementData) // (important-comment)
     
     if (!event.elementData) {
       console.log(`No element data available for event: ${event.type}`) // (important-comment)
+      if (event.type === 'navigate') {
+        return [{
+          selector: 'html',
+          type: 'css',
+          score: 10,
+          isUnique: true
+        }]
+      }
       return []
     }
     
