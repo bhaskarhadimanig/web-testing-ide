@@ -22,7 +22,9 @@
     "package:win": "pnpm build && pnpm --filter ide-electron package -- --win",
     "package:mac": "pnpm build && pnpm --filter ide-electron package -- --mac",
     "package:linux": "pnpm build && pnpm --filter ide-electron package -- --linux",
-    "demo:recording": "node scripts/create-demo-recording.js"
+    "demo:recording": "node scripts/create-demo-recording.js",
+    "cli": "node cli-recorder.js",
+    "record": "node cli-recorder.js"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.0.0",
