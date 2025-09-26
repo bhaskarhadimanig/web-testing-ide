@@ -275,13 +275,7 @@ public class ${className} {
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
-        options.addArguments("--disable-extensions");
-        options.addArguments("--disable-plugins");
-        options.addArguments("--disable-images");
-        options.addArguments("--disable-javascript");
         options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random());
-        options.addArguments("--data-path=/tmp/chrome-data-" + System.currentTimeMillis());
-        options.addArguments("--disk-cache-dir=/tmp/chrome-cache-" + System.currentTimeMillis());
         options.addArguments("--remote-debugging-port=0");
         driver = new ChromeDriver(options);
         driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));
