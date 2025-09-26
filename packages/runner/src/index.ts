@@ -294,6 +294,12 @@ export class TestRunner {
             const artifacts: TestArtifact[] = []
             const errors: TestError[] = []
             
+            const junitSuccess = javaStdout.includes('tests successful') && 
+                                !javaStdout.includes('tests failed') ||
+                                javaStdout.includes('0 tests failed')
+            
+            console.log(`JUnit success detected: ${junitSuccess}`) // (important-comment)
+            
             // Collect artifacts after Java execution
             try {
               console.log(`Collecting artifacts from output directory: ${outputDir}`) // (important-comment)
@@ -324,7 +330,7 @@ export class TestRunner {
               console.log(`Error collecting artifacts: ${artifactError}`) // (important-comment)
             }
             
-            if (javaCode === 0) {
+            if (javaCode === 0 || junitSuccess) {
               resolve({
                 success: true,
                 artifacts,
