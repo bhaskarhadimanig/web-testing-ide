@@ -275,6 +275,7 @@ public class ${className} {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
         options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random());
         options.addArguments("--remote-debugging-port=0");
         driver = new ChromeDriver(options);
@@ -446,7 +447,7 @@ public class ${className} {
         if (textMatch) {
           const text = textMatch[1]
           const element = selector.split(':has-text(')[0] || '*'
-          return `By.xpath("//${element}[contains(text(), '${text}')]")`
+          return `By.xpath("//${element}[contains(text(), '${text.replace(/'/g, "\\'")}')]")`
         }
       }
       
@@ -456,7 +457,7 @@ public class ${className} {
         if (elementMatch) {
           const element = elementMatch[1]
           const text = elementMatch[2]
-          return `By.xpath("//${element}[contains(text(), '${text}')]")`
+          return `By.xpath("//${element}[contains(text(), '${text.replace(/'/g, "\\'")}')]")`
         }
       }
       
@@ -496,9 +497,9 @@ public class ${className} {
           const text = textMatch[1]
           const element = selector.split(':has-text(')[0] || '*'
           if (element && element !== '*') {
-            return `By.xpath("//${element}[contains(text(), '${text}')]")`
+            return `By.xpath("//${element}[contains(text(), '${text.replace(/'/g, "\\'")}')]")`
           } else {
-            return `By.xpath("//*[contains(text(), '${text}')]")`
+            return `By.xpath("//*[contains(text(), '${text.replace(/'/g, "\\'")}')]")`
           }
         }
       }
@@ -508,7 +509,7 @@ public class ${className} {
         if (elementMatch) {
           const element = elementMatch[1]
           const text = elementMatch[2]
-          return `By.xpath("//${element}[contains(text(), '${text}')]")`
+          return `By.xpath("//${element}[contains(text(), '${text.replace(/'/g, "\\'")}')]")`
         }
       }
       
