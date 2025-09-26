@@ -296,7 +296,6 @@ export class TestRunner {
               execSync('pkill -f chrome', { stdio: 'ignore' })
               execSync('pkill -f chromium', { stdio: 'ignore' })
               execSync('pkill -f chromedriver', { stdio: 'ignore' })
-              execSync('pkill -f "Google Chrome"', { stdio: 'ignore' })
             } catch (e) {
             }
             
@@ -305,11 +304,10 @@ export class TestRunner {
               execSync('rm -rf /tmp/chrome-data-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/chrome-cache-*', { stdio: 'ignore' })
               execSync('rm -rf /tmp/.org.chromium.*', { stdio: 'ignore' })
-              execSync('rm -rf /tmp/.com.google.Chrome.*', { stdio: 'ignore' })
             } catch (e) {
             }
             
-            execSync('sleep 2', { stdio: 'ignore' })
+            execSync('sleep 1', { stdio: 'ignore' })
             
             console.log('Chrome cleanup completed successfully') // (important-comment)
           } catch (error) {

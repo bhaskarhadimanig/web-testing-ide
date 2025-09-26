@@ -456,7 +456,7 @@ export class RecorderEngine {
               placeholder: target.placeholder
             })
             inputTimeouts.delete(elementKey);
-          }, 1500); // Wait 1.5 seconds after user stops typing for better consolidation
+          }, 1000); // Wait 1 second after user stops typing
           
           inputTimeouts.set(elementKey, timeoutId);
         }
@@ -643,11 +643,11 @@ export class RecorderEngine {
       }
 
       if (this.isRecording) {
-        setTimeout(pollEvents, 500) // Changed from 300ms to 500ms for better stability
+        setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
       }
     }
 
-    setTimeout(pollEvents, 500) // Changed from 300ms to 500ms for better stability
+    setTimeout(pollEvents, 300) // Changed from 100ms to 300ms
   }
 
   private async generateSelectorsFromEvent(event: any): Promise<SelectorCandidate[]> {

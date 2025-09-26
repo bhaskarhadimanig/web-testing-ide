@@ -275,8 +275,6 @@ public class ${className} {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-web-security");
-        options.addArguments("--disable-features=VizDisplayCompositor");
         options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random() + "-" + Thread.currentThread().getId() + "-" + System.nanoTime());
         options.addArguments("--keep-alive-for-test");
         options.addArguments("--disable-background-timer-throttling");
@@ -407,7 +405,7 @@ public class ${className} {
       
       case 'wait': {
         const waitTime = Number(step.value) || 1000
-        const actualWaitTime = Math.max(waitTime, 8000) + 3000
+        const actualWaitTime = Math.max(waitTime, 5000) + 2000
         return isJava
           ? `        try { Thread.sleep(${actualWaitTime}); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }`
           : `        time.sleep(${actualWaitTime / 1000})`
