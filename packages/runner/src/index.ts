@@ -164,10 +164,17 @@ export class TestRunner {
           const className = path.basename(testFilePath, '.java')
           const classDir = path.dirname(testFilePath)
           
-          command = 'javac'
-          args = ['-cp', '.:/usr/share/java/selenium-server-standalone.jar:/usr/share/java/junit-platform-console-standalone.jar', testFilePath]
-          console.log(`Compiling Selenium Java test: ${command} ${args.join(' ')}`) // (important-comment)
-          
+          try {
+            require('fs').accessSync('./selenium-deps')
+            require('fs').accessSync('./junit-deps')
+            command = 'javac'
+            args = ['-cp', './selenium-deps/*:./junit-deps/*', testFilePath]
+          } catch (error) {
+            console.log('Warning: Selenium/JUnit dependencies not found, attempting compilation without external deps')
+            command = 'javac'
+            args = [testFilePath]
+          }
+          console.log(`Compiling Selenium Java test: ${command} ${args.join(' ')}`)
           
         } else {
           command = 'python3'
@@ -240,7 +247,8 @@ export class TestRunner {
           const classDir = path.dirname(testFilePath)
           
           const javaChild = spawn('java', [
-            '-cp', `.:/usr/share/java/selenium-server-standalone.jar:/usr/share/java/junit-platform-console-standalone.jar:${classDir}`,
+            '-Dwebdriver.chrome.driver=./chromedriver',
+            '-cp', './selenium-deps/*:./junit-deps/*:' + classDir,
             'org.junit.platform.console.ConsoleLauncher',
             '--class-path', classDir,
             '--select-class', className
@@ -456,14 +464,18 @@ export class TestRunner {
   }
 
   private detectFramework(testCode: string): 'playwright' | 'selenium' | 'cypress' {
-    if (testCode.includes('@playwright/test') || testCode.includes('import { test, expect } from \'@playwright/test\'')) {
-      return 'playwright'
-    } else if (testCode.includes('org.openqa.selenium') || testCode.includes('from selenium import') || testCode.includes('WebDriver') || testCode.includes('ChromeDriver')) {
+    if (testCode.includes('org.openqa.selenium') || testCode.includes('from selenium import') || testCode.includes('WebDriver') || testCode.includes('ChromeDriver') || testCode.includes('import org.openqa.selenium')) {
+      console.log('Detected Selenium framework from test code') // (important-comment)
       return 'selenium'
     } else if (testCode.includes('cypress') || testCode.includes('cy.')) {
+      console.log('Detected Cypress framework from test code') // (important-comment)
       return 'cypress'
+    } else if (testCode.includes('@playwright/test') || testCode.includes('import { test, expect } from \'@playwright/test\'')) {
+      console.log('Detected Playwright framework from test code') // (important-comment)
+      return 'playwright'
     }
-    return 'playwright' // Default fallback
+    console.log('Detected Playwright framework from test code (default)') // (important-comment)
+    return 'playwright'
   }
 
   private async findTestFiles(dir: string): Promise<string[]> {
@@ -502,7 +514,7 @@ export class TestRunner {
       
       await fs.writeFile(tempTestPath, tempTestCode, 'utf-8')
       
-      const result = await this.executeTest(tempTestPath, outputDir, opts, 'playwright')
+      const result = await this.executeTest(tempTestPath, outputDir, opts, this.detectFramework(tempTestCode))
       
       const testRun: TestRun = {
         id: runId,

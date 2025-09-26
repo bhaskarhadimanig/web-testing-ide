@@ -235,20 +235,21 @@ export class CodeGenerator {
     if (language === 'java') {
       return `import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.Dimension;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.Keys;
-import org.openqa.selenium.Dimension;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.OutputType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
-import java.time.Duration;`
+`
     }
     return `from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -263,19 +264,32 @@ import time`
   private generateSeleniumTestSetup(session: RecordingSession, options: CodegenOptions): string {
     if ((options.language as string) === 'java') {
       const className = session.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '') + 'Test'
-      return `public class ${className} {
+      return `
+public class ${className} {
     private WebDriver driver;
     private WebDriverWait wait;
 
     @BeforeEach
     public void setUp() {
-        driver = new ChromeDriver();
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--disable-plugins");
+        options.addArguments("--disable-images");
+        options.addArguments("--disable-javascript");
+        options.addArguments("--user-data-dir=/tmp/chrome-selenium-" + System.currentTimeMillis() + "-" + Math.random());
+        options.addArguments("--data-path=/tmp/chrome-data-" + System.currentTimeMillis());
+        options.addArguments("--disk-cache-dir=/tmp/chrome-cache-" + System.currentTimeMillis());
+        options.addArguments("--remote-debugging-port=0");
+        driver = new ChromeDriver(options);
         driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));
-        wait = new WebDriverWait(driver, Duration.ofSeconds(${(options.defaultTimeoutMs || 30000) / 1000}));
+        wait = new WebDriverWait(driver, 30);
     }
 
     @Test
-    public void test${session.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}() {`
+    public void test${className}() {`
     }
     return `class Test${session.name.replace(/\s+/g, '')}:
     def setup_method(self):
@@ -432,6 +446,7 @@ import time`
 
   private getSeleniumLocatorMethod(selector: string, selectors: SelectorCandidate[]): string {
     if (!selectors || selectors.length === 0) {
+      // Handle Playwright-style selectors that need conversion
       if (selector.includes(':has-text(')) {
         const textMatch = selector.match(/:has-text\("([^"]+)"\)/)
         if (textMatch) {
@@ -440,6 +455,27 @@ import time`
           return `By.xpath("//${element}[contains(text(), '${text}')]")`
         }
       }
+      
+      // Handle CSS selectors that start with element:has-text()
+      if (selector.match(/^(span|button|a|div|p|input):has-text\(/)) {
+        const elementMatch = selector.match(/^(\w+):has-text\("([^"]+)"\)/)
+        if (elementMatch) {
+          const element = elementMatch[1]
+          const text = elementMatch[2]
+          return `By.xpath("//${element}[contains(text(), '${text}')]")`
+        }
+      }
+      
+      // Handle ID selectors
+      if (selector.startsWith('#')) {
+        return `By.id("${selector.substring(1)}")`
+      }
+      
+      // Handle class selectors
+      if (selector.startsWith('.')) {
+        return `By.className("${selector.substring(1)}")`
+      }
+      
       return `By.cssSelector("${selector}")`
     }
     
@@ -531,9 +567,9 @@ import time`
           const finalStep = sameElementSteps[sameElementSteps.length - 1]
           consolidated.push({
             ...finalStep,
-            value: finalStep.value // Use the final typed value
+            value: finalStep.value
           })
-          i = j // Skip all the consolidated steps
+          i = j
         } else {
           consolidated.push(currentStep)
           i++
