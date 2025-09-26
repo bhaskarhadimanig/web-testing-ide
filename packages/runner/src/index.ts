@@ -287,8 +287,30 @@ export class TestRunner {
           
           const seleniumDepsPath = path.join(projectRoot, 'selenium-deps')
           const junitDepsPath = path.join(projectRoot, 'junit-deps')
+          
+          try {
+            const { execSync } = require('child_process')
+            console.log('Cleaning up Chrome processes and directories...') // (important-comment)
+            
+            try {
+              execSync('pkill -f chrome', { stdio: 'ignore' })
+            } catch (e) {
+            }
+            
+            try {
+              execSync('rm -rf /tmp/chrome-selenium-*', { stdio: 'ignore' })
+              execSync('rm -rf /tmp/chrome-data-*', { stdio: 'ignore' })
+              execSync('rm -rf /tmp/chrome-cache-*', { stdio: 'ignore' })
+            } catch (e) {
+            }
+            
+            console.log('Chrome cleanup completed successfully') // (important-comment)
+          } catch (error) {
+            console.log('Chrome cleanup error:', error instanceof Error ? error.message : String(error)) // (important-comment)
+          }
+          
           const javaChild = spawn('java', [
-            '-Dwebdriver.chrome.driver=./chromedriver',
+            `-Dwebdriver.chrome.driver=${path.join(projectRoot, 'chromedriver')}`,
             '-cp', `${seleniumDepsPath}/*:${junitDepsPath}/*:${classDir}`,
             'org.junit.platform.console.ConsoleLauncher',
             '--class-path', classDir,
