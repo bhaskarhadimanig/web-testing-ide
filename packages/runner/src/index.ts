@@ -158,10 +158,16 @@ export class TestRunner {
       
       if (!options.headless) {
         args.push('--headed')
+        args.push('--browser=chromium')
         console.log(`Browser will run in headed mode for visible execution`) // (important-comment)
       } else {
         console.log(`Browser will run in headless mode`) // (important-comment)
       }
+      
+      args.push('--screenshot=on')
+      args.push('--trace=on')
+      
+      console.log(`Executing Playwright test with args: ${args.join(' ')}`) // (important-comment)
 
       const child = spawn('npx', ['playwright', ...args], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -177,19 +183,27 @@ export class TestRunner {
       let stderr = ''
 
       child.stdout?.on('data', (data) => {
-        stdout += data.toString()
+        const output = data.toString()
+        stdout += output
+        console.log(`Playwright stdout: ${output.trim()}`) // (important-comment)
       })
 
       child.stderr?.on('data', (data) => {
-        stderr += data.toString()
+        const output = data.toString()
+        stderr += output
+        console.log(`Playwright stderr: ${output.trim()}`) // (important-comment)
       })
 
       child.on('close', async (code) => {
+        console.log(`Playwright test process exited with code: ${code}`) // (important-comment)
         const artifacts: TestArtifact[] = []
         const errors: TestError[] = []
 
         try {
+          console.log(`Collecting artifacts from output directory: ${outputDir}`) // (important-comment)
           const files = await fs.readdir(outputDir, { withFileTypes: true })
+          console.log(`Found ${files.length} files in output directory`) // (important-comment)
+          
           for (const file of files) {
             if (file.isFile() && !file.name.endsWith('.json')) {
               const filePath = join(outputDir, file.name)
@@ -209,32 +223,71 @@ export class TestRunner {
                 type,
                 path: filePath
               })
+              console.log(`Added artifact: ${type} - ${filePath}`) // (important-comment)
             }
           }
 
           try {
+            console.log(`Collecting recording screenshots from recordings directory`) // (important-comment)
             const recordingsDir = join(process.cwd(), 'recordings')
             const recordingDirs = await fs.readdir(recordingsDir, { withFileTypes: true })
+            console.log(`Found ${recordingDirs.length} recording directories`) // (important-comment)
             
             for (const recordingDir of recordingDirs) {
               if (recordingDir.isDirectory()) {
                 const screenshotsDir = join(recordingsDir, recordingDir.name, 'screenshots')
                 try {
                   const screenshotFiles = await fs.readdir(screenshotsDir, { withFileTypes: true })
+                  console.log(`Found ${screenshotFiles.length} screenshot files in ${screenshotsDir}`) // (important-comment)
+                  
                   for (const screenshotFile of screenshotFiles) {
-                    if (screenshotFile.isFile() && screenshotFile.name.endsWith('.png')) {
+                    if (screenshotFile.isFile() && (screenshotFile.name.endsWith('.png') || screenshotFile.name.endsWith('.jpg'))) {
                       const screenshotPath = join(screenshotsDir, screenshotFile.name)
                       artifacts.push({
                         type: 'screenshot',
                         path: screenshotPath
                       })
+                      console.log(`Added recording screenshot: ${screenshotPath}`) // (important-comment)
                     }
                   }
                 } catch (screenshotError) {
+                  console.log(`No screenshots found in ${screenshotsDir}`) // (important-comment)
                 }
               }
             }
+            
+            try {
+              const ideRecordingsDir = join(process.cwd(), 'apps', 'ide-electron', 'recordings')
+              const ideRecordingDirs = await fs.readdir(ideRecordingsDir, { withFileTypes: true })
+              console.log(`Found ${ideRecordingDirs.length} IDE recording directories`) // (important-comment)
+              
+              for (const recordingDir of ideRecordingDirs) {
+                if (recordingDir.isDirectory()) {
+                  const screenshotsDir = join(ideRecordingsDir, recordingDir.name, 'screenshots')
+                  try {
+                    const screenshotFiles = await fs.readdir(screenshotsDir, { withFileTypes: true })
+                    console.log(`Found ${screenshotFiles.length} IDE screenshot files in ${screenshotsDir}`) // (important-comment)
+                    
+                    for (const screenshotFile of screenshotFiles) {
+                      if (screenshotFile.isFile() && (screenshotFile.name.endsWith('.png') || screenshotFile.name.endsWith('.jpg'))) {
+                        const screenshotPath = join(screenshotsDir, screenshotFile.name)
+                        artifacts.push({
+                          type: 'screenshot',
+                          path: screenshotPath
+                        })
+                        console.log(`Added IDE recording screenshot: ${screenshotPath}`) // (important-comment)
+                      }
+                    }
+                  } catch (screenshotError) {
+                    console.log(`No screenshots found in IDE ${screenshotsDir}`) // (important-comment)
+                  }
+                }
+              }
+            } catch (ideRecordingError) {
+              console.log(`No IDE recordings directory found`) // (important-comment)
+            }
           } catch (recordingError) {
+            console.log(`No recordings directory found`) // (important-comment)
           }
         } catch (error) {
           console.error('Failed to collect artifacts:', error)
@@ -248,6 +301,8 @@ export class TestRunner {
           })
         }
 
+        console.log(`Test execution completed. Success: ${code === 0}, Artifacts: ${artifacts.length}, Errors: ${errors.length}`) // (important-comment)
+        
         resolve({
           success: code === 0,
           artifacts,

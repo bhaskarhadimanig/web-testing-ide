@@ -73,7 +73,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       onChange={(val) => onChange(val || '')}
       theme="vs-dark"
       options={{
-        minimap: { enabled: false },
+        minimap: { enabled: true },
         fontSize: 14,
         lineNumbers: 'on',
         readOnly,
@@ -81,10 +81,71 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         wordWrap: 'on',
         scrollBeyondLastLine: false,
         roundedSelection: false,
-        padding: { top: 10 }
+        padding: { top: 10 },
+        suggestOnTriggerCharacters: true,
+        quickSuggestions: true,
+        parameterHints: { enabled: true },
+        hover: { enabled: true },
+        folding: true,
+        autoIndent: 'full',
+        formatOnPaste: true,
+        formatOnType: true
       }}
-      onMount={(editor) => {
+      onMount={(editor, monaco) => {
         editorRef.current = editor
+        
+        monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+          target: monaco.languages.typescript.ScriptTarget.ES2020,
+          allowNonTsExtensions: true,
+          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          module: monaco.languages.typescript.ModuleKind.CommonJS,
+          noEmit: true,
+          esModuleInterop: true,
+          jsx: monaco.languages.typescript.JsxEmit.React,
+          reactNamespace: 'React',
+          allowJs: true,
+          typeRoots: ['node_modules/@types']
+        })
+
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(`
+          declare module '@playwright/test' {
+            export const test: any;
+            export const expect: any;
+            export interface Page {
+              goto(url: string): Promise<void>;
+              click(selector: string): Promise<void>;
+              fill(selector: string, value: string): Promise<void>;
+              screenshot(options?: any): Promise<Buffer>;
+              waitForSelector(selector: string): Promise<void>;
+            }
+            export interface BrowserContext {
+              newPage(): Promise<Page>;
+            }
+          }
+        `, 'file:///node_modules/@playwright/test/index.d.ts')
+
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+          console.log('Save shortcut triggered')
+        })
+
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR, () => {
+          console.log('Run shortcut triggered')
+        })
+
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
+          const action = editor.getAction('editor.action.formatDocument')
+          if (action) action.run()
+        })
+
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+          const action = editor.getAction('actions.find')
+          if (action) action.run()
+        })
+
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
+          const action = editor.getAction('editor.action.startFindReplaceAction')
+          if (action) action.run()
+        })
       }}
     />
   )

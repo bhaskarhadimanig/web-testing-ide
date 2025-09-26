@@ -137,13 +137,17 @@ export class RecorderEngine {
       console.log(`Screenshots directory ensured: ${screenshotDir}`) // (important-comment)
       
       console.log(`Attempting to capture screenshot: ${fullScreenshotPath}`) // (important-comment)
-      await this.page.screenshot({ 
-        path: fullScreenshotPath,
-        fullPage: true,
-        type: 'png'
-      })
-      
-      console.log(`Full page screenshot captured: ${fullScreenshotPath}`) // (important-comment)
+      try {
+        await this.page.screenshot({ 
+          path: fullScreenshotPath,
+          fullPage: true,
+          type: 'png'
+        })
+        console.log(`Full page screenshot captured successfully: ${fullScreenshotPath}`) // (important-comment)
+      } catch (screenshotError) {
+        console.error(`Failed to capture full page screenshot: ${screenshotError}`) // (important-comment)
+        throw screenshotError
+      }
 
       let elementScreenshot: string | undefined
       if (elementData?.boundingBox && elementData.boundingBox.width > 0 && elementData.boundingBox.height > 0) {
@@ -163,9 +167,9 @@ export class RecorderEngine {
             }
           })
           elementScreenshot = elementScreenshotPath
-          console.log(`Element screenshot captured: ${fullElementScreenshotPath}`) // (important-comment)
+          console.log(`Element screenshot captured successfully: ${fullElementScreenshotPath}`) // (important-comment)
         } catch (clipError) {
-          console.warn('Failed to capture element screenshot:', clipError)
+          console.error(`Failed to capture element screenshot: ${clipError}`) // (important-comment)
         }
       }
 
@@ -194,6 +198,19 @@ export class RecorderEngine {
     } catch (error) {
       console.error(`Failed to capture screenshot for step ${stepId}:`, error) // (important-comment)
       
+      let fallbackScreenshot: string | undefined
+      try {
+        const fallbackPath = join(process.cwd(), 'recordings', this.recording.id, `screenshots/${stepId}-fallback.png`)
+        await this.page.screenshot({ 
+          path: fallbackPath,
+          type: 'png'
+        })
+        fallbackScreenshot = `screenshots/${stepId}-fallback.png`
+        console.log(`Fallback screenshot captured: ${fallbackPath}`) // (important-comment)
+      } catch (fallbackError) {
+        console.error(`Fallback screenshot also failed:`, fallbackError) // (important-comment)
+      }
+      
       const step: RecorderStep = {
         id: stepId,
         type,
@@ -202,7 +219,7 @@ export class RecorderEngine {
         viewport: this.recording.viewport,
         selectors,
         value,
-        screenshot: undefined,
+        screenshot: fallbackScreenshot,
         metadata: {
           tagName: elementData?.tagName || 'html',
           elementAttributes: elementData?.attributes || {},
@@ -214,7 +231,7 @@ export class RecorderEngine {
 
       this.steps.push(step)
       
-      console.log(`Captured step ${stepId} without screenshot: ${type} with ${selectors.length} selectors`) // (important-comment)
+      console.log(`Captured step ${stepId} ${fallbackScreenshot ? 'with fallback screenshot' : 'without screenshot'}: ${type} with ${selectors.length} selectors`) // (important-comment)
     }
   }
 

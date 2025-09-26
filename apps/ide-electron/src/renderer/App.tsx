@@ -5,6 +5,7 @@ import { StepCard } from './components/StepCard'
 import { TestProgress } from './components/TestProgress'
 import { useHistory } from './hooks/useHistory'
 import { RecorderStep, RecordingSession, AssertionData } from '@web-testing-ide/common'
+import { CodeGenerator } from '@web-testing-ide/codegen'
 
 function App() {
   const [activeTab, setActiveTab] = useState<'steps' | 'code'>('steps')
@@ -144,7 +145,9 @@ test('recorded session', async ({ page }) => {
       
       const result = await window.electronAPI.runner.runTest(testCode, {
         headless: false,
-        isGeneratedCode: true
+        isGeneratedCode: true,
+        timeout: 60000,
+        retries: 1
       })
       
       setTestProgress({ progress: 75, currentStep: 'Collecting results...' })
@@ -212,259 +215,18 @@ test('recorded session', async ({ page }) => {
   }
 
   const generateCode = (session: RecordingSession, fw: string, lang: string): string => {
-    switch (fw) {
-      case 'playwright':
-        return generatePlaywrightCode(session, lang)
-      case 'cypress':
-        return generateCypressCode(session, lang)
-      case 'selenium':
-        return generateSeleniumCode(session, lang)
-      default:
-        return generatePlaywrightCode(session, lang)
-    }
+    const codeGenerator = new CodeGenerator()
+    return codeGenerator.generateCode(session, {
+      framework: fw as 'playwright' | 'cypress' | 'selenium',
+      language: lang as 'typescript' | 'javascript' | 'python' | 'java',
+      defaultTimeoutMs: 30000,
+      retryAttempts: 3,
+      autoWait: true
+    })
   }
 
-  const generatePlaywrightCode = (session: RecordingSession, lang: string): string => {
-    let code = `import { test, expect } from '@playwright/test'\n\n`
-    code += `test('${session.name}', async ({ page }) => {\n`
-    
-    session.steps.forEach((step: RecorderStep) => {
-      const selector = step.selectors[0]?.selector || 'body'
-      
-      switch (step.type) {
-        case 'navigate':
-          code += `  await page.goto('${step.url}')\n`
-          break
-        case 'click':
-          code += `  await page.click('${selector}')\n`
-          break
-        case 'type':
-          if (step.value) {
-            code += `  await page.fill('${selector}', '${step.value}')\n`
-          }
-          break
-        default:
-          if (step.type === 'assertion' && (step as any).assertion) {
-            const assertion = (step as any).assertion
-            switch (assertion.type) {
-              case 'exists':
-              case 'visible':
-                code += `  await expect(page.locator('${selector}')).toBeVisible()\n`
-                break
-              case 'containsText':
-                code += `  await expect(page.locator('${selector}')).toContainText('${assertion.expectedValue}')\n`
-                break
-              case 'urlContains':
-                code += `  await expect(page).toHaveURL(/${assertion.expectedValue}/)\n`
-                break
-            }
-          }
-          break
-        case 'screenshot':
-          code += `  await page.screenshot({ path: '${step.screenshot}' })\n`
-          break
-        case 'wait':
-          code += `  await page.waitForTimeout(${step.value || 1000})\n`
-          break
-      }
-    })
-    
-    code += `})\n`
-    return code
-  }
 
-  const generateCypressCode = (session: RecordingSession, lang: string): string => {
-    let code = `describe('${session.name}', () => {\n`
-    code += `  it('${session.name}', () => {\n`
-    
-    session.steps.forEach((step: RecorderStep) => {
-      const selector = step.selectors[0]?.selector || 'body'
-      
-      switch (step.type) {
-        case 'navigate':
-          code += `    cy.visit('${step.url}')\n`
-          break
-        case 'click':
-          code += `    cy.get('${selector}').click()\n`
-          break
-        case 'type':
-          if (step.value) {
-            code += `    cy.get('${selector}').type('${step.value}')\n`
-          }
-          break
-        default:
-          if (step.type === 'assertion' && (step as any).assertion) {
-            const assertion = (step as any).assertion
-            switch (assertion.type) {
-              case 'exists':
-              case 'visible':
-                code += `    cy.get('${selector}').should('be.visible')\n`
-                break
-              case 'containsText':
-                code += `    cy.get('${selector}').should('contain.text', '${assertion.expectedValue}')\n`
-                break
-              case 'urlContains':
-                code += `    cy.url().should('include', '${assertion.expectedValue}')\n`
-                break
-            }
-          }
-          break
-        case 'screenshot':
-          code += `    cy.screenshot('${step.screenshot}')\n`
-          break
-        case 'wait':
-          code += `    cy.wait(${step.value || 1000})\n`
-          break
-      }
-    })
-    
-    code += `  })\n})\n`
-    return code
-  }
 
-  const generateSeleniumCode = (session: RecordingSession, lang: string): string => {
-    if (lang === 'java') {
-      const className = session.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '') + 'Test'
-      let code = `import org.openqa.selenium.WebDriver;\n`
-      code += `import org.openqa.selenium.chrome.ChromeDriver;\n`
-      code += `import org.openqa.selenium.By;\n`
-      code += `import org.openqa.selenium.WebElement;\n`
-      code += `import org.openqa.selenium.support.ui.WebDriverWait;\n`
-      code += `import org.openqa.selenium.support.ui.ExpectedConditions;\n`
-      code += `import org.openqa.selenium.Dimension;\n`
-      code += `import org.junit.jupiter.api.Test;\n`
-      code += `import org.junit.jupiter.api.BeforeEach;\n`
-      code += `import org.junit.jupiter.api.AfterEach;\n`
-      code += `import java.time.Duration;\n\n`
-      
-      code += `public class ${className} {\n`
-      code += `    private WebDriver driver;\n`
-      code += `    private WebDriverWait wait;\n\n`
-      
-      code += `    @BeforeEach\n`
-      code += `    public void setUp() {\n`
-      code += `        driver = new ChromeDriver();\n`
-      code += `        driver.manage().window().setSize(new Dimension(${session.viewport.width}, ${session.viewport.height}));\n`
-      code += `        wait = new WebDriverWait(driver, Duration.ofSeconds(30));\n`
-      code += `    }\n\n`
-      
-      code += `    @Test\n`
-      code += `    public void test${session.name.replace(/\s+/g, '')}() {\n`
-      
-      session.steps.forEach((step: RecorderStep) => {
-        const selector = step.selectors[0]?.selector || 'body'
-        
-        switch (step.type) {
-          case 'navigate':
-            code += `        driver.get("${step.url}");\n`
-            break
-          case 'click':
-            code += `        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("${selector}"))).click();\n`
-            break
-          case 'type':
-            if (step.value) {
-              code += `        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}")));\n`
-              code += `        element.clear();\n`
-              code += `        element.sendKeys("${step.value}");\n`
-            }
-            break
-          case 'wait': {
-            const waitTime = Number(step.value) || 1000
-            code += `        try { Thread.sleep(${waitTime}); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }\n`
-            break
-          }
-          case 'screenshot':
-            code += `        // Screenshot functionality would require additional imports\n`
-            break
-          default:
-            if (step.type === 'assertion' && (step as any).assertion) {
-              const assertion = (step as any).assertion
-              switch (assertion.type) {
-                case 'exists':
-                case 'visible':
-                  code += `        assert wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("${selector}"))) != null;\n`
-                  break
-                case 'containsText':
-                  code += `        assert wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("${selector}"))).getText().contains("${assertion.expectedValue}");\n`
-                  break
-                case 'urlContains':
-                  code += `        assert driver.getCurrentUrl().contains("${assertion.expectedValue}");\n`
-                  break
-              }
-            }
-            break
-        }
-      })
-      
-      code += `    }\n\n`
-      code += `    @AfterEach\n`
-      code += `    public void tearDown() {\n`
-      code += `        if (driver != null) {\n`
-      code += `            driver.quit();\n`
-      code += `        }\n`
-      code += `    }\n`
-      code += `}\n`
-      return code
-    }
-    
-    let code = `from selenium import webdriver\n`
-    code += `from selenium.webdriver.common.by import By\n`
-    code += `from selenium.webdriver.support.ui import WebDriverWait\n`
-    code += `from selenium.webdriver.support import expected_conditions as EC\n`
-    code += `import time\n\n`
-    code += `class Test${session.name.replace(/\s+/g, '')}:\n`
-    code += `    def setup_method(self):\n`
-    code += `        self.driver = webdriver.Chrome()\n`
-    code += `        self.wait = WebDriverWait(self.driver, 30)\n\n`
-    code += `    def test_${session.name.toLowerCase().replace(/\s+/g, '_')}(self):\n`
-    
-    session.steps.forEach((step: RecorderStep) => {
-      const selector = step.selectors[0]?.selector || 'body'
-      
-      switch (step.type) {
-        case 'navigate':
-          code += `        self.driver.get('${step.url}')\n`
-          break
-        case 'click':
-          code += `        self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '${selector}'))).click()\n`
-          break
-        case 'type':
-          if (step.value) {
-            code += `        element = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}')))\n`
-            code += `        element.clear()\n`
-            code += `        element.send_keys('${step.value}')\n`
-          }
-          break
-        default:
-          if (step.type === 'assertion' && (step as any).assertion) {
-            const assertion = (step as any).assertion
-            switch (assertion.type) {
-              case 'exists':
-              case 'visible':
-                code += `        assert self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '${selector}')))\n`
-                break
-              case 'containsText':
-                code += `        assert '${assertion.expectedValue}' in self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '${selector}'))).text\n`
-                break
-              case 'urlContains':
-                code += `        assert '${assertion.expectedValue}' in self.driver.current_url\n`
-                break
-            }
-          }
-          break
-        case 'screenshot':
-          code += `        self.driver.save_screenshot('${step.screenshot}')\n`
-          break
-        case 'wait':
-          code += `        time.sleep(${(Number(step.value) || 1000) / 1000})\n`
-          break
-      }
-    })
-    
-    code += `\n    def teardown_method(self):\n`
-    code += `        self.driver.quit()\n`
-    return code
-  }
 
   const handleAddAssertion = () => {
     setShowAssertionBuilder(true)

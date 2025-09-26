@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@web-testing-ide/common": "workspace:*",
+    "@web-testing-ide/codegen": "workspace:*",
     "@web-testing-ide/recorder": "workspace:*",
     "@web-testing-ide/runner": "workspace:*",
     "react": "^18.2.0",

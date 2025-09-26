@@ -472,3 +472,5 @@ import time`
     return `By.cssSelector("${selector}")`
   }
 }
+
+export default CodeGenerator
