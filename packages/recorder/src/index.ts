@@ -842,6 +842,15 @@ export class RecorderEngine {
       console.log('No DISPLAY environment variable found, using headless mode')
       return true
     }
-    return false
+    
+    try {
+      const { execSync } = require('child_process')
+      execSync('xdpyinfo', { stdio: 'ignore', timeout: 1000 })
+      console.log('X server available, using headed mode')
+      return false
+    } catch (error) {
+      console.log('X server not available, using headless mode')
+      return true
+    }
   }
 }

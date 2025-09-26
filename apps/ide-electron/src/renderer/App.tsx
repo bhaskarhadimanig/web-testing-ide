@@ -66,7 +66,7 @@ test('recorded session', async ({ page }) => {
     try {
       const result = await window.electronAPI.recorder.start(normalizedUrl, {
         mode: 'playwright',
-        headless: false
+        headless: true // Force headless mode for environments without display servers
       })
       if (result.success) {
         setIsRecording(true)
